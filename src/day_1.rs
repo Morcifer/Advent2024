@@ -1,5 +1,6 @@
-use std::collections::HashSet;
 use nohash_hasher::BuildNoHashHasher;
+use std::collections::HashSet;
+
 use crate::file_utilities::read_lines;
 
 fn parse_line_to_int(line: String) -> i32 {
@@ -18,7 +19,7 @@ pub fn run(file_path: String, part: i32) -> i32 {
     match part {
         1 => part_1(file_path),
         2 => part_2(file_path),
-        _ => panic!("... nope.")
+        _ => panic!("... nope."),
     }
 }
 
@@ -31,9 +32,11 @@ fn part_2(file_path: String) -> i32 {
     let numbers = parse_data(file_path);
     let mut index = 0;
     let mut value = 0;
-    let mut history: HashSet<i32, BuildNoHashHasher<i32>> = HashSet::with_hasher(BuildNoHashHasher::default());
+    let mut history: HashSet<i32, BuildNoHashHasher<i32>> =
+        HashSet::with_hasher(BuildNoHashHasher::default());
 
-    while history.insert(value)  // insert returns false if the value is already there.
+    while history.insert(value)
+    // insert returns false if the value is already there.
     {
         value += numbers[index];
         index = (index + 1) % numbers.len();
@@ -45,8 +48,8 @@ fn part_2(file_path: String) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rstest::rstest;
     use crate::file_utilities::get_file_path;
+    use rstest::rstest;
 
     #[rstest]
     #[case(true, 3)]
