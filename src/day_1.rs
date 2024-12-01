@@ -1,17 +1,24 @@
-use nohash_hasher::BuildNoHashHasher;
-use std::collections::HashSet;
+use counter::Counter;
 
 use crate::file_utilities::read_lines;
 
-fn parse_line_to_int(line: String) -> i32 {
-    line.trim_start_matches('+').parse::<i32>().unwrap()
+fn parse_line_to_int(line: String) -> (i32, i32) {
+    let values = line
+        .split("   ")
+        .map(str::trim)
+        .map(|x| x.parse::<i32>().unwrap())
+        .collect::<Vec<i32>>();
+
+    (values[0], values[1])
 }
 
-fn parse_data(file_path: String) -> Vec<i32> {
-    read_lines(file_path)
+fn parse_data(file_path: String) -> (Vec<i32>, Vec<i32>) {
+    let all_values = read_lines(file_path)
         .into_iter()
         .map(parse_line_to_int)
-        .collect()
+        .collect::<Vec<(i32, i32)>>();
+
+    all_values.into_iter().unzip()
 }
 
 #[allow(dead_code)]
@@ -24,25 +31,26 @@ pub fn run(file_path: String, part: i32) -> i32 {
 }
 
 fn part_1(file_path: String) -> i32 {
-    let numbers = parse_data(file_path);
-    numbers.into_iter().sum()
+    let (mut list1, mut list2) = parse_data(file_path);
+
+    list1.sort();
+    list2.sort();
+
+    list1
+        .into_iter()
+        .zip(list2)
+        .map(|(a, b)| (a - b).abs())
+        .sum()
 }
 
 fn part_2(file_path: String) -> i32 {
-    let numbers = parse_data(file_path);
-    let mut index = 0;
-    let mut value = 0;
-    let mut history: HashSet<i32, BuildNoHashHasher<i32>> =
-        HashSet::with_hasher(BuildNoHashHasher::default());
+    let (list1, list2) = parse_data(file_path);
+    let counter = list2.into_iter().collect::<Counter<_>>();
 
-    while history.insert(value)
-    // insert returns false if the value is already there.
-    {
-        value += numbers[index];
-        index = (index + 1) % numbers.len();
-    }
-
-    value
+    list1
+        .into_iter()
+        .map(|item1| item1 * (counter[&item1] as i32))
+        .sum()
 }
 
 #[cfg(test)]
@@ -52,15 +60,15 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case(true, 3)]
-    #[case(false, 400)]
+    #[case(true, 11)]
+    #[case(false, 2756096)]
     fn test_part_1(#[case] is_test: bool, #[case] expected: i32) {
         assert_eq!(expected, part_1(get_file_path(is_test, 1, None)));
     }
 
     #[rstest]
-    #[case(true, 2)]
-    #[case(false, 232)]
+    #[case(true, 31)]
+    #[case(false, 23117829)]
     fn test_part_2(#[case] is_test: bool, #[case] expected: i32) {
         assert_eq!(expected, part_2(get_file_path(is_test, 1, None)));
     }

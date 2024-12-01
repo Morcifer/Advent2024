@@ -7,7 +7,7 @@ use crate::file_utilities::get_file_path;
 
 fn main() {
     let day = 1;
-    let is_test = false;
+    let is_test = true;
 
     for part in [1, 2] {
         println!(
