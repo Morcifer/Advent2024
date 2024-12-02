@@ -26,25 +26,18 @@ pub fn run(file_path: String, part: i32) -> i32 {
 }
 
 fn is_safe(report: &[i32]) -> bool {
-    let reference_diff = report[1] - report[0];
+    let diffs = report
+        .iter()
+        .tuple_windows()
+        .map(|(current, next)| next - current)
+        .collect::<Vec<_>>();
 
-    for (current, next) in report.iter().tuple_windows() {
-        let diff = next - current;
+    let increasing = diffs.iter().all(|diff| *diff > 0);
+    let decreasing = diffs.iter().all(|diff| *diff < 0);
 
-        if diff.abs() < 1 || diff.abs() > 3 {
-            return false;
-        }
+    let in_range = diffs.iter().all(|diff| (1..=3).contains(&diff.abs()));
 
-        if diff < 0 && reference_diff > 0 {
-            return false;
-        }
-
-        if diff > 0 && reference_diff < 0 {
-            return false;
-        }
-    }
-
-    true
+    (decreasing || increasing) && in_range
 }
 
 fn is_safe_with_tolerance(report: &[i32]) -> bool {
