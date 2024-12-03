@@ -1,4 +1,5 @@
 use std::fs::File;
+#[allow(unused_imports)]
 use std::io::{self, BufRead, Read};
 use std::path::Path;
 
@@ -8,6 +9,7 @@ pub fn get_file_path(is_test: bool, day: u32, suffix: Option<&str>) -> String {
     format!("./data/{sub_folder}/day_{day}{suffix}.txt")
 }
 
+#[allow(dead_code)]
 pub fn read_lines<P>(filename: P) -> Vec<String>
 where
     P: AsRef<Path>,
@@ -19,6 +21,7 @@ where
         .collect()
 }
 
+#[allow(dead_code)]
 pub fn read_as_single_line<P>(filename: P) -> String
 where
     P: AsRef<Path>,
