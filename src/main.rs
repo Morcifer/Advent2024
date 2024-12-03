@@ -1,13 +1,13 @@
 mod file_utilities;
 
-mod day_2;
+mod day_3;
 
-use crate::day_2::run;
+use crate::day_3::run;
 use crate::file_utilities::get_file_path;
 
 fn main() {
-    let day = 2;
-    let is_test = true;
+    let day = 3;
+    let is_test = false;
 
     for part in [1, 2] {
         println!(
