@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::file_utilities::read_as_single_line;
 
 fn parse_data(file_path: String) -> String {
@@ -46,36 +48,34 @@ fn run_program(program_line: String, use_extra_instructions: bool) -> i32 {
     let mut result = 0;
 
     let mul_spots = program_line.match_indices("mul");
+    let do_spots = program_line.match_indices("do()");
+    let do_not_spots = program_line.match_indices("don't()");
 
-    let do_spots = program_line
-        .match_indices("do()")
-        .map(|(spot, _)| spot)
-        .collect::<Vec<_>>();
-
-    let do_not_spots = program_line
-        .match_indices("don't()")
-        .map(|(spot, _)| spot)
+    let all_spots = mul_spots
+        .chain(do_spots.chain(do_not_spots))
+        .sorted_by(|a, b| a.0.cmp(&b.0))
         .collect::<Vec<_>>();
 
     let program = program_line.chars().collect::<Vec<char>>();
 
-    for (mul_spot, _) in mul_spots {
-        let mut current_spot = mul_spot + 3;
+    let mut is_do = true;
 
-        let recent_do_spot = do_spots
-            .iter()
-            .filter(|s| **s < mul_spot)
-            .last()
-            .unwrap_or(&0);
-
-        let recent_do_not_spot = do_not_spots.iter().filter(|s| **s < mul_spot).last();
-
-        if use_extra_instructions
-            && recent_do_not_spot.is_some()
-            && recent_do_not_spot.unwrap() > recent_do_spot
-        {
+    for (spot, instruction) in all_spots {
+        if instruction == "do()" {
+            is_do = true;
             continue;
         }
+
+        if instruction == "don't()" {
+            is_do = false;
+            continue;
+        }
+
+        if use_extra_instructions && !is_do {
+            continue;
+        }
+
+        let mut current_spot = spot + 3;
 
         if !validate_character(&program, &mut current_spot, '(') {
             continue;
