@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Read};
 use std::path::Path;
 
 pub fn get_file_path(is_test: bool, day: u32, suffix: Option<&str>) -> String {
@@ -17,4 +17,11 @@ where
         .lines()
         .map(|line| line.unwrap())
         .collect()
+}
+
+pub fn read_as_single_line<P>(filename: P) -> String
+where
+    P: AsRef<Path>,
+{
+    std::fs::read_to_string(filename).unwrap()
 }
