@@ -1,5 +1,3 @@
-use itertools::Itertools;
-
 use crate::file_utilities::read_as_single_line;
 
 fn parse_data(file_path: String) -> String {
@@ -13,6 +11,35 @@ pub fn run(file_path: String, part: i32) -> i32 {
         2 => part_2(file_path),
         _ => panic!("... nope."),
     }
+}
+
+fn validate_character(program: &[char], spot: &mut usize, expected_character: char) -> bool {
+    if program[*spot] != expected_character {
+        return false;
+    }
+
+    *spot += 1;
+    true
+}
+
+fn get_number(program: &[char], spot: &mut usize) -> Option<i32> {
+    let number_start = *spot;
+
+    while program[*spot].is_numeric() {
+        *spot += 1;
+    }
+
+    let number_end = *spot;
+
+    if !(1..=3).contains(&(number_end - number_start)) {
+        return None;
+    }
+
+    Some(
+        String::from_iter(program[number_start..number_end].iter())
+            .parse::<i32>()
+            .unwrap(),
+    )
 }
 
 fn run_program(program_line: String, use_extra_instructions: bool) -> i32 {
@@ -30,10 +57,10 @@ fn run_program(program_line: String, use_extra_instructions: bool) -> i32 {
         .map(|(spot, _)| spot)
         .collect::<Vec<_>>();
 
-    let program = program_line.chars().collect_vec();
+    let program = program_line.chars().collect::<Vec<char>>();
 
     for (mul_spot, _) in mul_spots {
-        let mut current_spot = mul_spot;
+        let mut current_spot = mul_spot + 3;
 
         let recent_do_spot = do_spots
             .iter()
@@ -50,62 +77,31 @@ fn run_program(program_line: String, use_extra_instructions: bool) -> i32 {
             continue;
         }
 
-        // Validate opening parenthesis
-        current_spot += 3;
-
-        if program[current_spot] != '(' {
+        if !validate_character(&program, &mut current_spot, '(') {
             continue;
         }
 
-        current_spot += 1;
+        let first_number = get_number(&program, &mut current_spot);
 
-        // Find first digit
-        let number_start = current_spot;
-
-        while program[current_spot].is_numeric() {
-            current_spot += 1;
-        }
-
-        let number_end = current_spot;
-
-        if !(1..=3).contains(&(number_end - number_start)) {
+        if first_number.is_none() {
             continue;
         }
 
-        let first_number = String::from_iter(program[number_start..number_end].iter())
-            .parse::<i32>()
-            .unwrap();
-
-        // Validate comma
-        if program[current_spot] != ',' {
+        if !validate_character(&program, &mut current_spot, ',') {
             continue;
         }
 
-        current_spot += 1;
+        let second_number = get_number(&program, &mut current_spot);
 
-        // Find second digit
-        let number_start = current_spot;
-
-        while program[current_spot].is_numeric() {
-            current_spot += 1;
-        }
-
-        let number_end = current_spot;
-
-        if !(1..=3).contains(&(number_end - number_start)) {
+        if second_number.is_none() {
             continue;
         }
 
-        let second_number = String::from_iter(program[number_start..number_end].iter())
-            .parse::<i32>()
-            .unwrap();
-
-        // Validate closing parenthesis
-        if program[current_spot] != ')' {
+        if !validate_character(&program, &mut current_spot, ')') {
             continue;
         }
 
-        result += first_number * second_number;
+        result += first_number.unwrap() * second_number.unwrap();
     }
 
     result
