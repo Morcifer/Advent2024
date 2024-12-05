@@ -42,34 +42,30 @@ pub fn run(file_path: String, part: i32) -> i32 {
     }
 }
 
-fn is_order_valid(rules: &Vec<(usize, usize)>, pages: &[usize]) -> bool {
-    let mut page_map: [Option<usize>; 100] = [None; 100];
-    pages
-        .iter()
-        .copied()
-        .enumerate()
-        .for_each(|(index, page)| page_map[page] = Some(index));
-
-    let mut is_valid = true;
-
-    for rule in rules {
-        if page_map[rule.0].is_none() || page_map[rule.1].is_none() {
-            continue;
-        }
-
-        is_valid = is_valid && page_map[rule.0].unwrap() < page_map[rule.1].unwrap();
-    }
-
-    is_valid
-}
-
 fn part_1(file_path: String) -> i32 {
     let (rules, page_lists) = parse_data(file_path);
 
     let mut result = 0;
 
     for pages in page_lists {
-        if is_order_valid(&rules, &pages) {
+        let mut page_map: [Option<usize>; 100] = [None; 100];
+        pages
+            .iter()
+            .copied()
+            .enumerate()
+            .for_each(|(index, page)| page_map[page] = Some(index));
+
+        let mut is_valid = true;
+
+        for rule in &rules {
+            if page_map[rule.0].is_none() || page_map[rule.1].is_none() {
+                continue;
+            }
+
+            is_valid = is_valid && page_map[rule.0].unwrap() < page_map[rule.1].unwrap();
+        }
+
+        if is_valid {
             result += pages[pages.len() / 2] as i32;
         }
     }
@@ -83,37 +79,49 @@ fn part_2(file_path: String) -> i32 {
     let mut result = 0;
 
     for pages in page_lists {
-        if is_order_valid(&rules, &pages) {
-            continue;
-        }
-
         let mut pages = pages;
 
-        while !is_order_valid(&rules, &pages) {
-            let mut page_map: [Option<usize>; 100] = [None; 100];
-            pages
-                .iter()
-                .copied()
-                .enumerate()
-                .for_each(|(index, page)| page_map[page] = Some(index));
+        let mut page_map: [Option<usize>; 100] = [None; 100];
+        pages
+            .iter()
+            .copied()
+            .enumerate()
+            .for_each(|(index, page)| page_map[page] = Some(index));
+
+        let mut was_changed = false;
+
+        loop {
+            let mut is_valid = true;
 
             for rule in &rules {
                 if page_map[rule.0].is_none() || page_map[rule.1].is_none() {
                     continue;
                 }
 
-                if page_map[rule.0].unwrap() < page_map[rule.1].unwrap() {
+                let index_0 = page_map[rule.0].unwrap();
+                let index_1 = page_map[rule.1].unwrap();
+
+                if index_0 < index_1 {
                     continue;
                 }
 
-                pages[page_map[rule.0].unwrap()] = rule.1;
-                pages[page_map[rule.1].unwrap()] = rule.0;
+                pages[index_0] = rule.1;
+                pages[index_1] = rule.0;
 
+                page_map[rule.0] = Some(index_1);
+                page_map[rule.1] = Some(index_0);
+
+                is_valid = false;
+                was_changed = true;
+                break;
+            }
+
+            if is_valid {
                 break;
             }
         }
 
-        if is_order_valid(&rules, &pages) {
+        if was_changed {
             result += pages[pages.len() / 2] as i32;
         }
     }
