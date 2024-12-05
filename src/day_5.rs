@@ -1,3 +1,6 @@
+use std::cmp::Ordering;
+use std::collections::HashSet;
+
 use crate::file_utilities::read_two_chunks;
 
 fn parse_rule_line(line: String) -> (usize, usize) {
@@ -40,6 +43,56 @@ pub fn run(file_path: String, part: i32) -> i32 {
         2 => part_2(file_path),
         _ => panic!("... nope."),
     }
+}
+
+#[allow(dead_code)]
+fn get_rules_array(rules: Vec<(usize, usize)>) -> Vec<HashSet<usize>> {
+    let mut rules_array = (0..100)
+        .map(|_| HashSet::with_capacity(0))
+        .collect::<Vec<_>>();
+
+    rules.iter().copied().for_each(|(before, after)| {
+        rules_array[before].insert(after);
+    });
+
+    rules_array
+}
+
+#[allow(dead_code)]
+fn get_sorted_pages(pages: &[usize], rules: &[HashSet<usize>]) -> Vec<usize> {
+    let mut sorted_pages = pages.to_owned();
+
+    sorted_pages.sort_by(|a, b| {
+        if rules[*a].contains(b) {
+            return Ordering::Less;
+        }
+        if rules[*b].contains(a) {
+            return Ordering::Greater;
+        }
+        Ordering::Equal
+    });
+
+    sorted_pages
+}
+
+#[allow(dead_code)]
+fn alternative(file_path: String, equal: bool) -> i32 {
+    let (rules, page_lists) = parse_data(file_path);
+    let rules_array = get_rules_array(rules);
+
+    page_lists
+        .into_iter()
+        .filter_map(|pages| {
+            let pages = pages.clone();
+            let sorted_pages = get_sorted_pages(&pages, &rules_array);
+
+            if equal == (pages == sorted_pages) {
+                return Some(sorted_pages[pages.len() / 2] as i32);
+            }
+
+            None
+        })
+        .sum()
 }
 
 fn part_1(file_path: String) -> i32 {
@@ -134,6 +187,7 @@ mod tests {
     #[case(false, 5588)]
     fn test_part_1(#[case] is_test: bool, #[case] expected: i32) {
         assert_eq!(expected, part_1(get_file_path(is_test, 5, None)));
+        assert_eq!(expected, alternative(get_file_path(is_test, 5, None), true));
     }
 
     #[rstest]
@@ -141,5 +195,9 @@ mod tests {
     #[case(false, 5331)]
     fn test_part_2(#[case] is_test: bool, #[case] expected: i32) {
         assert_eq!(expected, part_2(get_file_path(is_test, 5, None)));
+        assert_eq!(
+            expected,
+            alternative(get_file_path(is_test, 5, None), false)
+        );
     }
 }
