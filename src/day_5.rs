@@ -107,7 +107,6 @@ fn part_2(file_path: String) -> i32 {
 
                     is_valid = false;
                     was_changed = true;
-                    break;
                 }
             }
 
