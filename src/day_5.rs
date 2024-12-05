@@ -94,26 +94,21 @@ fn part_2(file_path: String) -> i32 {
             let mut is_valid = true;
 
             for rule in &rules {
-                if page_map[rule.0].is_none() || page_map[rule.1].is_none() {
-                    continue;
+                if let (Some(index_0), Some(index_1)) = (page_map[rule.0], page_map[rule.1]) {
+                    if index_0 < index_1 {
+                        continue;
+                    }
+
+                    pages[index_0] = rule.1;
+                    pages[index_1] = rule.0;
+
+                    page_map[rule.0] = Some(index_1);
+                    page_map[rule.1] = Some(index_0);
+
+                    is_valid = false;
+                    was_changed = true;
+                    break;
                 }
-
-                let index_0 = page_map[rule.0].unwrap();
-                let index_1 = page_map[rule.1].unwrap();
-
-                if index_0 < index_1 {
-                    continue;
-                }
-
-                pages[index_0] = rule.1;
-                pages[index_1] = rule.0;
-
-                page_map[rule.0] = Some(index_1);
-                page_map[rule.1] = Some(index_0);
-
-                is_valid = false;
-                was_changed = true;
-                break;
             }
 
             if is_valid {
