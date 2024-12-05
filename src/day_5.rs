@@ -1,31 +1,30 @@
-use std::collections::{HashMap, HashSet};
-
 use crate::file_utilities::read_two_chunks;
 
-fn parse_rule_line(line: String) -> (i32, i32) {
+fn parse_rule_line(line: String) -> (usize, usize) {
     let values = line
         .split("|")
         .map(str::trim)
-        .map(|x| x.parse::<i32>().unwrap())
-        .collect::<Vec<i32>>();
+        .map(|x| x.parse::<usize>().unwrap())
+        .collect::<Vec<usize>>();
 
     (values[0], values[1])
 }
 
-fn parse_pages_line(line: String) -> Vec<i32> {
+fn parse_pages_line(line: String) -> Vec<usize> {
     line.split(",")
         .map(str::trim)
-        .map(|x| x.parse::<i32>().unwrap())
-        .collect::<Vec<i32>>()
+        .map(|x| x.parse::<usize>().unwrap())
+        .collect::<Vec<usize>>()
 }
 
-fn parse_data(file_path: String) -> (Vec<(i32, i32)>, Vec<Vec<i32>>) {
+fn parse_data(file_path: String) -> (Vec<(usize, usize)>, Vec<Vec<usize>>) {
     let (rules_lines, pages_lines) = read_two_chunks(file_path);
 
     let rules = rules_lines
         .into_iter()
         .map(parse_rule_line)
         .collect::<Vec<_>>();
+
     let pages = pages_lines
         .into_iter()
         .map(parse_pages_line)
@@ -43,23 +42,22 @@ pub fn run(file_path: String, part: i32) -> i32 {
     }
 }
 
-fn is_order_valid(rules: &Vec<(i32, i32)>, pages: &[i32]) -> bool {
-    let page_set = pages.iter().copied().collect::<HashSet<i32>>();
-    let page_map = pages
+fn is_order_valid(rules: &Vec<(usize, usize)>, pages: &[usize]) -> bool {
+    let mut page_map: [Option<usize>; 100] = [None; 100];
+    pages
         .iter()
         .copied()
         .enumerate()
-        .map(|(index, page)| (page, index))
-        .collect::<HashMap<i32, usize>>();
+        .for_each(|(index, page)| page_map[page] = Some(index));
 
     let mut is_valid = true;
 
     for rule in rules {
-        if !page_set.contains(&rule.0) || !page_set.contains(&rule.1) {
+        if page_map[rule.0].is_none() || page_map[rule.1].is_none() {
             continue;
         }
 
-        is_valid = is_valid && page_map[&rule.0] < page_map[&rule.1];
+        is_valid = is_valid && page_map[rule.0].unwrap() < page_map[rule.1].unwrap();
     }
 
     is_valid
@@ -72,7 +70,7 @@ fn part_1(file_path: String) -> i32 {
 
     for pages in page_lists {
         if is_order_valid(&rules, &pages) {
-            result += pages[pages.len() / 2];
+            result += pages[pages.len() / 2] as i32;
         }
     }
 
@@ -92,32 +90,31 @@ fn part_2(file_path: String) -> i32 {
         let mut pages = pages;
 
         while !is_order_valid(&rules, &pages) {
-            let page_set = pages.iter().copied().collect::<HashSet<i32>>();
-            let page_map = pages
+            let mut page_map: [Option<usize>; 100] = [None; 100];
+            pages
                 .iter()
                 .copied()
                 .enumerate()
-                .map(|(index, page)| (page, index))
-                .collect::<HashMap<i32, usize>>();
+                .for_each(|(index, page)| page_map[page] = Some(index));
 
             for rule in &rules {
-                if !page_set.contains(&rule.0) || !page_set.contains(&rule.1) {
+                if page_map[rule.0].is_none() || page_map[rule.1].is_none() {
                     continue;
                 }
 
-                if page_map[&rule.0] < page_map[&rule.1] {
+                if page_map[rule.0].unwrap() < page_map[rule.1].unwrap() {
                     continue;
                 }
 
-                pages[page_map[&rule.0]] = rule.1;
-                pages[page_map[&rule.1]] = rule.0;
+                pages[page_map[rule.0].unwrap()] = rule.1;
+                pages[page_map[rule.1].unwrap()] = rule.0;
 
                 break;
             }
         }
 
         if is_order_valid(&rules, &pages) {
-            result += pages[pages.len() / 2];
+            result += pages[pages.len() / 2] as i32;
         }
     }
 
