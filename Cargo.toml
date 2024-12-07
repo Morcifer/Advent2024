@@ -12,6 +12,7 @@ num = "0.4.3"
 rustc-hash = "2.0.0"
 nohash-hasher = "0.2.0"
 slotmap = "1.0.7"
+rayon = "1.10.0"
 
 [dev-dependencies]
 rstest = "0.22.0"

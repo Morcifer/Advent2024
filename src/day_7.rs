@@ -48,8 +48,8 @@ fn find_solution(datum: Vec<u64>, valid_operators: &Vec<char>) -> Option<u64> {
     while let Some((current_value, new_index, operator_to_index)) = queue.pop_front() {
         let new_value = get_new_value(current_value, values[new_index], operator_to_index);
 
-        if new_value == final_value {
-            // Hurray, we're here!
+        if new_value == final_value && new_index == values.len() - 1 {
+            // Hurray, we're here! And we even used up all of our numbers!
             return Some(final_value);
         }
 
@@ -112,7 +112,7 @@ mod tests {
 
     #[rstest]
     #[case(true, 11387)]
-    #[case(false, 227921760682526)]
+    #[case(false, 227921760109726)]
     fn test_part_2(#[case] is_test: bool, #[case] expected: u64) {
         assert_eq!(expected, part_2(get_file_path(is_test, 7, None)));
     }
@@ -127,5 +127,12 @@ mod tests {
         #[case] expected: u64,
     ) {
         assert_eq!(expected, get_new_value(first_value, second_value, '|'));
+    }
+
+    #[test]
+    fn test_weird_line() {
+        let datum = vec![572800, 5, 727, 18, 82, 2];
+        let valid_operators = vec!['+', '*', '|'];
+        assert!(find_solution(datum, &valid_operators).is_none());
     }
 }
