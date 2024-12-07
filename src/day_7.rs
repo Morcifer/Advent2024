@@ -35,13 +35,13 @@ fn get_new_value(current_value: u64, value_at_new_index: u64, operator_to_index:
     }
 }
 
-fn find_solution(datum: Vec<u64>, valid_operators: &Vec<char>) -> Option<u64> {
+fn find_solution(datum: Vec<u64>, valid_operators: Vec<char>) -> Option<u64> {
     let final_value = *datum.first().unwrap();
     let values = datum.into_iter().skip(1).collect::<Vec<u64>>();
 
     let mut queue = VecDeque::new();
 
-    for valid_operator in valid_operators {
+    for valid_operator in &valid_operators {
         queue.push_front((values[0], 1, *valid_operator)); // (current value, new index, operator to index)
     }
 
@@ -63,7 +63,7 @@ fn find_solution(datum: Vec<u64>, valid_operators: &Vec<char>) -> Option<u64> {
             continue;
         }
 
-        for valid_operator in valid_operators {
+        for valid_operator in &valid_operators {
             queue.push_front((new_value, new_index + 1, *valid_operator));
         }
     }
@@ -73,28 +73,18 @@ fn find_solution(datum: Vec<u64>, valid_operators: &Vec<char>) -> Option<u64> {
 
 fn part_1(file_path: String) -> u64 {
     let data = parse_data(file_path);
-    let valid_operators = vec!['+', '*'];
 
-    let mut result = 0;
-
-    for datum in data {
-        result += find_solution(datum, &valid_operators).unwrap_or_default();
-    }
-
-    result
+    data.into_iter()
+        .filter_map(|datum| find_solution(datum, vec!['+', '*']))
+        .sum()
 }
 
 fn part_2(file_path: String) -> u64 {
     let data = parse_data(file_path);
-    let valid_operators = vec!['+', '*', '|'];
 
-    let mut result = 0;
-
-    for datum in data {
-        result += find_solution(datum, &valid_operators).unwrap_or_default();
-    }
-
-    result
+    data.into_iter()
+        .filter_map(|datum| find_solution(datum, vec!['+', '*', '|']))
+        .sum()
 }
 
 #[cfg(test)]
@@ -132,7 +122,6 @@ mod tests {
     #[test]
     fn test_weird_line() {
         let datum = vec![572800, 5, 727, 18, 82, 2];
-        let valid_operators = vec!['+', '*', '|'];
-        assert!(find_solution(datum, &valid_operators).is_none());
+        assert!(find_solution(datum, vec!['+', '*', '|']).is_none());
     }
 }
