@@ -116,4 +116,16 @@ mod tests {
     fn test_part_2(#[case] is_test: bool, #[case] expected: u64) {
         assert_eq!(expected, part_2(get_file_path(is_test, 7, None)));
     }
+
+    #[rstest]
+    #[case(12, 345, 12345)]
+    #[case(1234567, 1, 12345671)]
+    #[case(1234567, 12345, 123456712345)]
+    fn test_concatenation(
+        #[case] first_value: u64,
+        #[case] second_value: u64,
+        #[case] expected: u64,
+    ) {
+        assert_eq!(expected, get_new_value(first_value, second_value, '|'));
+    }
 }
