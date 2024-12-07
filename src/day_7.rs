@@ -30,10 +30,7 @@ fn get_new_value(current_value: u64, value_at_new_index: u64, operator_to_index:
     match operator_to_index {
         '+' => current_value + value_at_new_index,
         '*' => current_value * value_at_new_index,
-        '|' => {
-            current_value * 10_u64.pow(value_at_new_index.to_string().len() as u32)
-                + value_at_new_index
-        }
+        '|' => current_value * 10_u64.pow(value_at_new_index.ilog10() + 1) + value_at_new_index,
         _ => panic!("Not a value operator, how did you get here?!"),
     }
 }
