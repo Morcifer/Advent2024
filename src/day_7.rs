@@ -26,92 +26,8 @@ pub fn run(file_path: String, part: i32) -> u64 {
     }
 }
 
-fn part_1(file_path: String) -> u64 {
-    let data = parse_data(file_path);
-
-    let mut result = 0;
-
-    for datum in data {
-        let final_value = *datum.first().unwrap();
-        let values = datum.into_iter().skip(1).collect::<Vec<u64>>();
-
-        let mut queue = VecDeque::new();
-
-        queue.push_front((values[0], 1, '+')); // (current value, new index, operator to index)
-        queue.push_front((values[0], 1, '*')); // (current value, new index, operator to index)
-
-        while let Some((current_value, new_index, operator_to_index)) = queue.pop_front() {
-            let new_value = get_new_value(current_value, values[new_index], operator_to_index);
-
-            if new_value == final_value {
-                // Hurray, we're here!
-                result += final_value;
-                break;
-            }
-
-            if new_value > final_value {
-                // Search tree is dead, because there's no '-' or '/'. Yet.
-                continue;
-            }
-
-            if new_index == values.len() - 1 {
-                // Search tree is dead, because we ran out of values and aren't at the correct result yet
-                continue;
-            }
-
-            queue.push_back((new_value, new_index + 1, '+'));
-            queue.push_back((new_value, new_index + 1, '*'));
-        }
-    }
-
-    result
-}
-
-fn part_2(file_path: String) -> u64 {
-    let data = parse_data(file_path);
-
-    let mut result = 0;
-
-    for datum in data {
-        let final_value = *datum.first().unwrap();
-        let values = datum.into_iter().skip(1).collect::<Vec<u64>>();
-
-        let mut queue = VecDeque::new();
-
-        queue.push_front((values[0], 1, '+')); // (current value, new index, operator to index)
-        queue.push_front((values[0], 1, '*')); // (current value, new index, operator to index)
-        queue.push_front((values[0], 1, '|')); // (current value, new index, operator to index)
-
-        while let Some((current_value, new_index, operator_to_index)) = queue.pop_front() {
-            let new_value = get_new_value(current_value, values[new_index], operator_to_index);
-
-            if new_value == final_value {
-                // Hurray, we're here!
-                result += final_value;
-                break;
-            }
-
-            if new_value > final_value {
-                // Search tree is dead, because there's no '-' or '/'. Yet.
-                continue;
-            }
-
-            if new_index == values.len() - 1 {
-                // Search tree is dead, because we ran out of values and aren't at the correct result yet
-                continue;
-            }
-
-            queue.push_back((new_value, new_index + 1, '+'));
-            queue.push_back((new_value, new_index + 1, '*'));
-            queue.push_back((new_value, new_index + 1, '|'));
-        }
-    }
-
-    result
-}
-
 fn get_new_value(current_value: u64, value_at_new_index: u64, operator_to_index: char) -> u64 {
-    let new_value = match operator_to_index {
+    match operator_to_index {
         '+' => current_value + value_at_new_index,
         '*' => current_value * value_at_new_index,
         '|' => {
@@ -119,8 +35,69 @@ fn get_new_value(current_value: u64, value_at_new_index: u64, operator_to_index:
                 + value_at_new_index
         }
         _ => panic!("Not a value operator, how did you get here?!"),
-    };
-    new_value
+    }
+}
+
+fn find_solution(datum: Vec<u64>, valid_operators: &Vec<char>) -> Option<u64> {
+    let final_value = *datum.first().unwrap();
+    let values = datum.into_iter().skip(1).collect::<Vec<u64>>();
+
+    let mut queue = VecDeque::new();
+
+    for valid_operator in valid_operators {
+        queue.push_front((values[0], 1, *valid_operator)); // (current value, new index, operator to index)
+    }
+
+    while let Some((current_value, new_index, operator_to_index)) = queue.pop_front() {
+        let new_value = get_new_value(current_value, values[new_index], operator_to_index);
+
+        if new_value == final_value {
+            // Hurray, we're here!
+            return Some(final_value);
+        }
+
+        if new_value > final_value {
+            // Search tree is dead, because there's no '-' or '/'. Yet.
+            continue;
+        }
+
+        if new_index == values.len() - 1 {
+            // Search tree is dead, because we ran out of values and aren't at the correct result yet
+            continue;
+        }
+
+        for valid_operator in valid_operators {
+            queue.push_front((new_value, new_index + 1, *valid_operator));
+        }
+    }
+
+    None
+}
+
+fn part_1(file_path: String) -> u64 {
+    let data = parse_data(file_path);
+    let valid_operators = vec!['+', '*'];
+
+    let mut result = 0;
+
+    for datum in data {
+        result += find_solution(datum, &valid_operators).unwrap_or_default();
+    }
+
+    result
+}
+
+fn part_2(file_path: String) -> u64 {
+    let data = parse_data(file_path);
+    let valid_operators = vec!['+', '*', '|'];
+
+    let mut result = 0;
+
+    for datum in data {
+        result += find_solution(datum, &valid_operators).unwrap_or_default();
+    }
+
+    result
 }
 
 #[cfg(test)]
