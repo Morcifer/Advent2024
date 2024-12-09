@@ -4,13 +4,13 @@ use std::collections::VecDeque;
 
 use crate::file_utilities::read_lines;
 
-fn parse_line_to_int(line: String) -> Vec<u32> {
+fn parse_line_to_int(line: String) -> Vec<usize> {
     line.chars()
-        .map(|x| x.to_digit(10).unwrap())
-        .collect::<Vec<u32>>()
+        .map(|x| x.to_digit(10).unwrap() as usize)
+        .collect::<Vec<usize>>()
 }
 
-fn parse_data(file_path: String) -> Vec<u32> {
+fn parse_data(file_path: String) -> Vec<usize> {
     read_lines(file_path)
         .into_iter()
         .map(parse_line_to_int)
@@ -27,9 +27,22 @@ pub fn run(file_path: String, part: i32) -> u64 {
     }
 }
 
-fn get_files_and_gaps(data: Vec<u32>) -> (Vec<(u32, u32, i32)>, Vec<(u32, u32)>) {
-    let mut data_index_length_id = vec![];
-    let mut gap_index_length = vec![];
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+struct File {
+    index: usize,
+    size: usize,
+    id: usize,
+}
+
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+struct Gap {
+    index: usize,
+    size: usize,
+}
+
+fn get_files_and_gaps(data: Vec<usize>) -> (Vec<File>, Vec<Gap>) {
+    let mut files = vec![];
+    let mut gaps = vec![];
 
     let mut file_index = 0;
     let mut memory_index = 0;
@@ -40,25 +53,37 @@ fn get_files_and_gaps(data: Vec<u32>) -> (Vec<(u32, u32, i32)>, Vec<(u32, u32)>)
         let file_size = data[i * 2];
         let gap_size = data[i * 2 + 1];
 
-        data_index_length_id.push((memory_index, file_size, file_index));
+        files.push(File {
+            index: memory_index,
+            size: file_size,
+            id: file_index,
+        });
         memory_index += file_size;
 
-        gap_index_length.push((memory_index, gap_size));
+        gaps.push(Gap {
+            index: memory_index,
+            size: gap_size,
+        });
         memory_index += gap_size;
 
         file_index += 1;
     }
 
-    data_index_length_id.push((memory_index, *data.last().unwrap(), file_index));
-    (data_index_length_id, gap_index_length)
+    files.push(File {
+        index: memory_index,
+        size: *data.last().unwrap(),
+        id: file_index,
+    });
+
+    (files, gaps)
 }
 
-fn get_checksum(ordered: Vec<(u32, u32, i32)>) -> u64 {
+fn get_checksum(ordered: Vec<File>) -> u64 {
     ordered
         .into_iter()
-        .flat_map(|(memory_index, file_size, file_id)| {
-            (0..file_size).map(move |position_delta| {
-                (memory_index as u64 + position_delta as u64) * file_id as u64
+        .flat_map(|file| {
+            (0..file.size).map(move |position_delta| {
+                (file.index as u64 + position_delta as u64) * file.id as u64
             })
         })
         .sum()
@@ -67,53 +92,72 @@ fn get_checksum(ordered: Vec<(u32, u32, i32)>) -> u64 {
 fn part_1(file_path: String) -> u64 {
     let data = parse_data(file_path);
 
-    let (mut data_index_length_id, gap_index_length) = get_files_and_gaps(data);
-    let mut gap_index_length = gap_index_length.into_iter().collect::<VecDeque<_>>();
+    let (mut files, gaps) = get_files_and_gaps(data);
+    let mut gaps = gaps.into_iter().collect::<VecDeque<_>>();
 
     // Start pushing things from the end to the beginning.
-    let mut file_index = data_index_length_id.len() - 1;
+    let mut file_index = files.len() - 1;
 
-    while let Some((gap_memory, gap_size)) = gap_index_length.pop_front() {
-        let (file_memory, file_size, file_id) = data_index_length_id[file_index];
+    while let Some(gap) = gaps.pop_front() {
+        let file = files[file_index];
 
-        if gap_memory >= file_memory {
+        if gap.index >= file.index {
             break;
         }
 
-        match gap_size.cmp(&file_size) {
+        match gap.size.cmp(&file.size) {
             Ordering::Equal => {
                 // Move entire file into gap, and move to the next file
-                data_index_length_id[file_index] = (gap_memory, file_size, file_id);
+                files[file_index] = File {
+                    index: gap.index,
+                    size: file.size,
+                    id: file.id,
+                };
                 file_index -= 1;
             }
             Ordering::Greater => {
                 // Move entire file into gap, move to the next file, and put a leftover gap.
-                data_index_length_id[file_index] = (gap_memory, file_size, file_id);
+                files[file_index] = File {
+                    index: gap.index,
+                    size: file.size,
+                    id: file.id,
+                };
                 file_index -= 1;
 
-                gap_index_length.push_front((gap_memory + file_size, gap_size - file_size));
+                gaps.push_front(Gap {
+                    index: gap.index + file.size,
+                    size: gap.size - file.size,
+                });
             }
             Ordering::Less => {
                 // Move part of the file into the gap (appending to end of list),
                 // and then update a leftover file.
-                data_index_length_id.push((gap_memory, gap_size, file_id));
-                data_index_length_id[file_index] =
-                    (file_memory + gap_size, file_size - gap_size, file_id);
+                files.push(File {
+                    index: gap.index,
+                    size: gap.size,
+                    id: file.id,
+                });
+                files[file_index] = File {
+                    index: file.index + gap.size,
+                    size: file.size - gap.size,
+                    id: file.id,
+                };
             }
         }
     }
 
-    let mut ordered = data_index_length_id
-        .into_iter()
-        .sorted_by_key(|v| v.0)
-        .collect_vec();
+    let mut ordered = files.into_iter().sorted_by_key(|v| v.index).collect_vec();
 
     // now hacky close for last gap
     let before_last = ordered[ordered.len() - 2];
     let last = ordered[ordered.len() - 1];
     let index = ordered.len() - 1;
 
-    ordered[index] = (before_last.0 + before_last.1, last.1, last.2);
+    ordered[index] = File {
+        index: before_last.index + before_last.size,
+        size: last.size,
+        id: last.id,
+    };
 
     get_checksum(ordered)
 }
@@ -121,33 +165,45 @@ fn part_1(file_path: String) -> u64 {
 fn part_2(file_path: String) -> u64 {
     let data = parse_data(file_path);
 
-    let (mut data_index_length_id, mut gap_index_length) = get_files_and_gaps(data);
+    let (mut files, mut gaps) = get_files_and_gaps(data);
 
     // Now start pushing things from the end to the beginning.
-    let mut file_index = data_index_length_id.len() - 1;
+    let mut file_index = files.len() - 1;
 
     loop {
-        let (file_memory, file_size, file_id) = data_index_length_id[file_index];
+        for gap in &mut gaps {
+            let file = files[file_index];
 
-        for gap_item in &mut gap_index_length {
-            let (gap_memory, gap_size) = *gap_item;
-
-            if gap_memory >= file_memory {
+            if gap.index >= file.index {
                 break;
             }
 
-            match gap_size.cmp(&file_size) {
+            match gap.size.cmp(&file.size) {
                 Ordering::Equal => {
                     // Move entire file into gap, and move to the next file
-                    data_index_length_id[file_index] = (gap_memory, file_size, file_id);
-                    *gap_item = (gap_memory, 0);
+                    files[file_index] = File {
+                        index: gap.index,
+                        size: file.size,
+                        id: file.id,
+                    };
+                    *gap = Gap {
+                        index: gap.index,
+                        size: 0,
+                    };
 
                     break;
                 }
                 Ordering::Greater => {
                     // Move entire file into gap, move to the next file, and put a leftover gap.
-                    data_index_length_id[file_index] = (gap_memory, file_size, file_id);
-                    *gap_item = (gap_memory + file_size, gap_size - file_size);
+                    files[file_index] = File {
+                        index: gap.index,
+                        size: file.size,
+                        id: file.id,
+                    };
+                    *gap = Gap {
+                        index: gap.index + file.size,
+                        size: gap.size - file.size,
+                    };
 
                     break;
                 }
@@ -162,10 +218,7 @@ fn part_2(file_path: String) -> u64 {
         file_index -= 1;
     }
 
-    let ordered = data_index_length_id
-        .into_iter()
-        .sorted_by_key(|v| v.0)
-        .collect_vec();
+    let ordered = files.into_iter().sorted_by_key(|v| v.index).collect_vec();
 
     get_checksum(ordered)
 }
