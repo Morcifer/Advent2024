@@ -46,24 +46,25 @@ fn part_1(file_path: String) -> u64 {
     let mut antinodes: HashSet<(isize, isize)> = HashSet::new();
 
     for antenna_set in antenna_sets {
-        for i in 0..map_size {
-            for j in 0..map_size {
-                for (antenna_i, antenna_j) in &antenna_set {
-                    // Find line to (i, j), then find required other antenna, and see if there is one there.
-                    let diff_i = antenna_i - i;
-                    let diff_j = antenna_j - j;
+        for antenna_from in &antenna_set {
+            for antenna_to in &antenna_set {
+                if antenna_from == antenna_to {
+                    // Antenna to itself doesn't count!
+                    continue;
+                }
 
-                    if diff_i == 0 && diff_j == 0 {
-                        // Antenna to itself doesn't count!
-                        continue;
-                    }
+                let diff_i = antenna_from.0 - antenna_to.0;
+                let diff_j = antenna_from.1 - antenna_to.1;
 
-                    let required_point = (i + 2 * diff_i, j + 2 * diff_j);
+                let antinode_i = antenna_to.0 + 2 * diff_i;
+                let antinode_j = antenna_to.1 + 2 * diff_j;
 
-                    if antenna_set.contains(&required_point) {
-                        antinodes.insert((i, j));
-                        break;
-                    }
+                if antinode_i >= 0
+                    && antinode_j >= 0
+                    && antinode_i < map_size
+                    && antinode_j < map_size
+                {
+                    antinodes.insert((antinode_i, antinode_j));
                 }
             }
         }
