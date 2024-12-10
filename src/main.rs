@@ -1,14 +1,14 @@
 mod file_utilities;
 
-mod day_9;
+mod day_10;
 
 use std::time::Instant;
 
-use crate::day_9::run;
+use crate::day_10::run;
 use crate::file_utilities::get_file_path;
 
 fn main() {
-    let day = 9;
+    let day = 10;
     let is_test = false;
 
     for part in [1, 2] {
