@@ -110,40 +110,43 @@ fn get_edges(region: &Vec<Point>) -> HashSet<(Point, Point, Direction)> {
     let mut fence_edges = HashSet::new();
 
     for region_point in region {
-        let (node_row, node_column) = (region_point.row() as isize, region_point.column() as isize);
-
         let up_neighbour = region_point.unbound_neighbour(Direction::Up);
         let down_neighbour = region_point.unbound_neighbour(Direction::Down);
         let left_neighbour = region_point.unbound_neighbour(Direction::Left);
         let right_neighbour = region_point.unbound_neighbour(Direction::Right);
 
         if !region_hashset.contains(&up_neighbour) {
+            let reference_point = *region_point;
             fence_edges.insert((
-                Point::new(node_row, node_column),
-                Point::new(node_row, node_column + 1),
+                reference_point,
+                reference_point.unbound_neighbour(Direction::Right),
                 Direction::Up,
             ));
         }
 
         if !region_hashset.contains(&down_neighbour) {
+            let reference_point = region_point.unbound_neighbour(Direction::Down);
             fence_edges.insert((
-                Point::new(node_row + 1, node_column),
-                Point::new(node_row + 1, node_column + 1),
+                reference_point,
+                reference_point.unbound_neighbour(Direction::Right),
                 Direction::Down,
             ));
         }
+
         if !region_hashset.contains(&left_neighbour) {
+            let reference_point = *region_point;
             fence_edges.insert((
-                Point::new(node_row, node_column),
-                Point::new(node_row + 1, node_column),
+                reference_point,
+                reference_point.unbound_neighbour(Direction::Down),
                 Direction::Left,
             ));
         }
 
         if !region_hashset.contains(&right_neighbour) {
+            let reference_point = region_point.unbound_neighbour(Direction::Right);
             fence_edges.insert((
-                Point::new(node_row, node_column + 1),
-                Point::new(node_row + 1, node_column + 1),
+                reference_point,
+                reference_point.unbound_neighbour(Direction::Down),
                 Direction::Right,
             ));
         }
