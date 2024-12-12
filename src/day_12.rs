@@ -1,4 +1,5 @@
 use crate::file_utilities::read_lines;
+use crate::map_utilities::{DIRECTIONS, Direction, Point};
 
 use itertools::Itertools;
 use std::collections::{HashSet, VecDeque};
@@ -25,61 +26,54 @@ pub fn run(file_path: String, part: i32) -> u64 {
 
 fn flood_fill_for_region(
     map: &[Vec<char>],
-    current_node_to_explore: (usize, usize, char),
-    nodes_to_explore: &mut VecDeque<(usize, usize)>,
-    explored: &mut HashSet<(usize, usize)>,
-) -> Vec<(usize, usize)> {
-    let map_size = map.len() as isize;
+    current_node_to_explore: (Point, char),
+    nodes_to_explore: &mut VecDeque<Point>,
+    explored: &mut HashSet<Point>,
+) -> Vec<Point> {
+    let map_size = map.len();
 
-    let (explore_row, explore_column, explore_char) = current_node_to_explore;
+    let (explore_point, explore_char) = current_node_to_explore;
 
     let mut flood_fill_queue = VecDeque::new();
-    flood_fill_queue.push_back((explore_row, explore_column));
+    flood_fill_queue.push_back(explore_point);
 
     let mut flood_fill_explored = HashSet::new();
 
     let mut region = vec![];
 
-    while let Some(node_for_flood_fill) = flood_fill_queue.pop_front() {
-        if flood_fill_explored.contains(&node_for_flood_fill) {
+    while let Some(flood_fill_point) = flood_fill_queue.pop_front() {
+        if flood_fill_explored.contains(&flood_fill_point) {
             continue;
         }
 
-        let (flood_fill_row, flood_fill_column) = node_for_flood_fill;
-
-        let flood_fill_char = map[flood_fill_row][flood_fill_column];
+        let flood_fill_char = map[flood_fill_point.row()][flood_fill_point.column()];
 
         if flood_fill_char != explore_char {
             // This will have to be saved for another search...
-            nodes_to_explore.push_back((flood_fill_row, flood_fill_column));
+            nodes_to_explore.push_back(flood_fill_point);
             continue;
         }
 
-        region.push((flood_fill_row, flood_fill_column));
-        explored.insert((flood_fill_row, flood_fill_column));
-        flood_fill_explored.insert((flood_fill_row, flood_fill_column));
+        region.push(flood_fill_point);
+        explored.insert(flood_fill_point);
+        flood_fill_explored.insert(flood_fill_point);
 
-        let neighbours = [(0, 1), (1, 0), (0, -1), (-1, 0)];
+        let neighbours = DIRECTIONS
+            .into_iter()
+            .filter_map(|direction| flood_fill_point.neighbour(direction, map_size))
+            .collect::<Vec<Point>>();
 
-        for (neighbour_row, neighbour_column) in neighbours {
-            let new_row = flood_fill_row as isize + neighbour_row as isize;
-            let new_column = flood_fill_column as isize + neighbour_column as isize;
-
-            if new_row < 0 || new_row >= map_size || new_column < 0 || new_column >= map_size {
-                continue;
-            }
-
-            flood_fill_queue.push_back((new_row as usize, new_column as usize));
-        }
+        flood_fill_queue.extend(neighbours);
     }
+
     region
 }
 
-fn get_regions(map: &[Vec<char>]) -> Vec<Vec<(usize, usize)>> {
-    let mut regions: Vec<Vec<(usize, usize)>> = vec![];
+fn get_regions(map: &[Vec<char>]) -> Vec<Vec<Point>> {
+    let mut regions: Vec<Vec<Point>> = vec![];
 
     let mut nodes_to_explore = VecDeque::new();
-    nodes_to_explore.push_back((0, 0));
+    nodes_to_explore.push_back(Point::new(0, 0));
 
     let mut explored = HashSet::new();
 
@@ -91,12 +85,11 @@ fn get_regions(map: &[Vec<char>]) -> Vec<Vec<(usize, usize)>> {
 
         explored.insert(node_to_explore);
 
-        let (explore_row, explore_column) = node_to_explore;
-        let explore_char = map[explore_row][explore_column];
+        let explore_char = map[node_to_explore.row()][node_to_explore.column()];
 
         let region = flood_fill_for_region(
             map,
-            (explore_row, explore_column, explore_char),
+            (node_to_explore, explore_char),
             &mut nodes_to_explore,
             &mut explored,
         );
@@ -108,57 +101,49 @@ fn get_regions(map: &[Vec<char>]) -> Vec<Vec<(usize, usize)>> {
     regions
 }
 
-#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
-enum Direction {
-    Up,
-    Right,
-    Down,
-    Left,
-}
-
-fn get_edges(region: &Vec<(usize, usize)>) -> HashSet<((isize, isize), (isize, isize), Direction)> {
+fn get_edges(region: &Vec<Point>) -> HashSet<(Point, Point, Direction)> {
     let region_hashset = region
         .iter()
         .copied()
-        .map(|(row, column)| (row as isize, column as isize))
         .collect::<HashSet<_>>();
 
     let mut fence_edges = HashSet::new();
 
-    for (node_row, node_column) in region {
-        let (node_row, node_column) = (*node_row as isize, *node_column as isize);
-        let up_neighbour = (node_row - 1, node_column);
-        let down_neighbour = (node_row + 1, node_column);
-        let left_neighbour = (node_row, node_column - 1);
-        let right_neighbour = (node_row, node_column + 1);
+    for region_point in region {
+        let (node_row, node_column) = (region_point.row() as isize, region_point.column() as isize);
+
+        let up_neighbour = region_point.unbound_neighbour(Direction::Up);
+        let down_neighbour = region_point.unbound_neighbour(Direction::Down);
+        let left_neighbour = region_point.unbound_neighbour(Direction::Left);
+        let right_neighbour = region_point.unbound_neighbour(Direction::Right);
 
         if !region_hashset.contains(&up_neighbour) {
             fence_edges.insert((
-                (node_row, node_column),
-                (node_row, node_column + 1),
+                Point::new(node_row, node_column),
+                Point::new(node_row, node_column + 1),
                 Direction::Up,
             ));
         }
 
         if !region_hashset.contains(&down_neighbour) {
             fence_edges.insert((
-                (node_row + 1, node_column),
-                (node_row + 1, node_column + 1),
+                Point::new(node_row + 1, node_column),
+                Point::new(node_row + 1, node_column + 1),
                 Direction::Down,
             ));
         }
         if !region_hashset.contains(&left_neighbour) {
             fence_edges.insert((
-                (node_row, node_column),
-                (node_row + 1, node_column),
+                Point::new(node_row, node_column),
+                Point::new(node_row + 1, node_column),
                 Direction::Left,
             ));
         }
 
         if !region_hashset.contains(&right_neighbour) {
             fence_edges.insert((
-                (node_row, node_column + 1),
-                (node_row + 1, node_column + 1),
+                Point::new(node_row, node_column + 1),
+                Point::new(node_row + 1, node_column + 1),
                 Direction::Right,
             ));
         }
@@ -203,21 +188,21 @@ fn part_2(file_path: String) -> u64 {
                 // Go left
                 let mut left_point = point;
                 while fence_edges.contains(&(
-                    (left_point.0, left_point.1 - 1),
+                    Point::new(left_point.row, left_point.column - 1),
                     left_point,
                     direction,
                 )) {
-                    left_point = (left_point.0, left_point.1 - 1);
+                    left_point = Point::new(left_point.row, left_point.column - 1);
                 }
 
                 // Go right
                 let mut right_point = point;
                 while fence_edges.contains(&(
                     right_point,
-                    (right_point.0, right_point.1 + 1),
+                    Point::new(right_point.row, right_point.column + 1),
                     direction,
                 )) {
-                    right_point = (right_point.0, right_point.1 + 1);
+                    right_point = Point::new(right_point.row, right_point.column + 1);
                 }
 
                 if right_point != left_point {
@@ -228,18 +213,18 @@ fn part_2(file_path: String) -> u64 {
             for direction in [Direction::Right, Direction::Left] {
                 // Go up
                 let mut up_point = point;
-                while fence_edges.contains(&((up_point.0 - 1, up_point.1), up_point, direction)) {
-                    up_point = (up_point.0 - 1, up_point.1);
+                while fence_edges.contains(&(Point::new(up_point.row - 1, up_point.column), up_point, direction)) {
+                    up_point = Point::new(up_point.row - 1, up_point.column);
                 }
 
                 // Go down
                 let mut down_point = point;
                 while fence_edges.contains(&(
                     down_point,
-                    (down_point.0 + 1, down_point.1),
+                    Point::new(down_point.row + 1, down_point.column),
                     direction,
                 )) {
-                    down_point = (down_point.0 + 1, down_point.1);
+                    down_point = Point::new(down_point.row + 1, down_point.column);
                 }
 
                 if up_point != down_point {

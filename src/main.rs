@@ -1,6 +1,7 @@
 mod file_utilities;
 
 mod day_12;
+mod map_utilities;
 
 use std::time::Instant;
 
