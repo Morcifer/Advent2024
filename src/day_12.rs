@@ -22,9 +22,59 @@ pub fn run(file_path: String, part: i32) -> u64 {
     }
 }
 
-fn get_regions(map: Vec<Vec<char>>) -> Vec<Vec<(usize, usize)>> {
+fn flood_fill_for_region(
+    map: &[Vec<char>],
+    current_node_to_explore: (usize, usize, char),
+    nodes_to_explore: &mut VecDeque<(usize, usize)>,
+    explored: &mut HashSet<(usize, usize)>,
+) -> Vec<(usize, usize)> {
     let map_size = map.len() as isize;
 
+    let (explore_row, explore_column, explore_char) = current_node_to_explore;
+
+    let mut flood_fill_queue = VecDeque::new();
+    flood_fill_queue.push_back((explore_row, explore_column));
+
+    let mut flood_fill_explored = HashSet::new();
+
+    let mut region = vec![];
+
+    while let Some(node_for_flood_fill) = flood_fill_queue.pop_front() {
+        if flood_fill_explored.contains(&node_for_flood_fill) {
+            continue;
+        }
+
+        let (flood_fill_row, flood_fill_column) = node_for_flood_fill;
+
+        let flood_fill_char = map[flood_fill_row][flood_fill_column];
+
+        if flood_fill_char != explore_char {
+            // This will have to be saved for another search...
+            nodes_to_explore.push_back((flood_fill_row, flood_fill_column));
+            continue;
+        }
+
+        region.push((flood_fill_row, flood_fill_column));
+        explored.insert((flood_fill_row, flood_fill_column));
+        flood_fill_explored.insert((flood_fill_row, flood_fill_column));
+
+        let neighbours = [(0, 1), (1, 0), (0, -1), (-1, 0)];
+
+        for (neighbour_row, neighbour_column) in neighbours {
+            let new_row = flood_fill_row as isize + neighbour_row as isize;
+            let new_column = flood_fill_column as isize + neighbour_column as isize;
+
+            if new_row < 0 || new_row >= map_size || new_column < 0 || new_column >= map_size {
+                continue;
+            }
+
+            flood_fill_queue.push_back((new_row as usize, new_column as usize));
+        }
+    }
+    region
+}
+
+fn get_regions(map: &[Vec<char>]) -> Vec<Vec<(usize, usize)>> {
     let mut regions: Vec<Vec<(usize, usize)>> = vec![];
 
     let mut nodes_to_explore = VecDeque::new();
@@ -43,57 +93,23 @@ fn get_regions(map: Vec<Vec<char>>) -> Vec<Vec<(usize, usize)>> {
         let (explore_row, explore_column) = node_to_explore;
         let explore_char = map[explore_row][explore_column];
 
-        // Internal flood-fill
-        let mut flood_fill_queue = VecDeque::new();
-        flood_fill_queue.push_back((explore_row, explore_column));
-
-        let mut flood_fill_explored = HashSet::new();
-
-        let mut region = vec![];
-
-        while let Some(node_for_flood_fill) = flood_fill_queue.pop_front() {
-            if flood_fill_explored.contains(&node_for_flood_fill) {
-                continue;
-            }
-
-            let (flood_fill_row, flood_fill_column) = node_for_flood_fill;
-
-            let flood_fill_char = map[flood_fill_row][flood_fill_column];
-
-            if flood_fill_char != explore_char {
-                // This is for another search...
-                // println!("I found ({flood_fill_row}, {flood_fill_column}) but it's for letter {flood_fill_char} and I'm in letter {explore_char}");
-                nodes_to_explore.push_front((flood_fill_row, flood_fill_column));
-                continue;
-            }
-
-            region.push((flood_fill_row, flood_fill_column));
-            explored.insert((flood_fill_row, flood_fill_column));
-            flood_fill_explored.insert((flood_fill_row, flood_fill_column));
-
-            let neighbours = [(0, 1), (1, 0), (0, -1), (-1, 0)];
-
-            for (neighbour_row, neighbour_column) in neighbours {
-                let new_row = flood_fill_row as isize + neighbour_row as isize;
-                let new_column = flood_fill_column as isize + neighbour_column as isize;
-
-                if new_row < 0 || new_row >= map_size || new_column < 0 || new_column >= map_size {
-                    continue;
-                }
-
-                flood_fill_queue.push_back((new_row as usize, new_column as usize));
-            }
-        }
+        let region = flood_fill_for_region(
+            map,
+            (explore_row, explore_column, explore_char),
+            &mut nodes_to_explore,
+            &mut explored,
+        );
 
         // println!("{region:?} for letter {explore_char}");
         regions.push(region);
     }
+
     regions
 }
 
 fn part_1(file_path: String) -> u64 {
     let map = parse_data(file_path);
-    let regions = get_regions(map);
+    let regions = get_regions(&map);
 
     let mut result = 0;
     for region in regions {
@@ -134,7 +150,7 @@ enum Direction {
 
 fn part_2(file_path: String) -> u64 {
     let map = parse_data(file_path);
-    let regions = get_regions(map);
+    let regions = get_regions(&map);
 
     let mut result = 0;
     for region in regions {
