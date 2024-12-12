@@ -1,5 +1,6 @@
 use crate::file_utilities::read_lines;
 
+use itertools::Itertools;
 use std::collections::{HashSet, VecDeque};
 
 fn parse_line_to_chars(line: String) -> Vec<char> {
@@ -115,19 +116,13 @@ enum Direction {
     Left,
 }
 
-fn get_edges(
-    region: &Vec<(usize, usize)>,
-) -> (
-    HashSet<(isize, isize)>,
-    HashSet<((isize, isize), (isize, isize), Direction)>,
-) {
+fn get_edges(region: &Vec<(usize, usize)>) -> HashSet<((isize, isize), (isize, isize), Direction)> {
     let region_hashset = region
         .iter()
         .copied()
         .map(|(row, column)| (row as isize, column as isize))
         .collect::<HashSet<_>>();
 
-    let mut fence_points = HashSet::new();
     let mut fence_edges = HashSet::new();
 
     for (node_row, node_column) in region {
@@ -138,8 +133,6 @@ fn get_edges(
         let right_neighbour = (node_row, node_column + 1);
 
         if !region_hashset.contains(&up_neighbour) {
-            fence_points.insert((node_row, node_column));
-            fence_points.insert((node_row, node_column + 1));
             fence_edges.insert((
                 (node_row, node_column),
                 (node_row, node_column + 1),
@@ -148,8 +141,6 @@ fn get_edges(
         }
 
         if !region_hashset.contains(&down_neighbour) {
-            fence_points.insert((node_row + 1, node_column));
-            fence_points.insert((node_row + 1, node_column + 1));
             fence_edges.insert((
                 (node_row + 1, node_column),
                 (node_row + 1, node_column + 1),
@@ -157,8 +148,6 @@ fn get_edges(
             ));
         }
         if !region_hashset.contains(&left_neighbour) {
-            fence_points.insert((node_row, node_column));
-            fence_points.insert((node_row + 1, node_column));
             fence_edges.insert((
                 (node_row, node_column),
                 (node_row + 1, node_column),
@@ -167,8 +156,6 @@ fn get_edges(
         }
 
         if !region_hashset.contains(&right_neighbour) {
-            fence_points.insert((node_row, node_column + 1));
-            fence_points.insert((node_row + 1, node_column + 1));
             fence_edges.insert((
                 (node_row, node_column + 1),
                 (node_row + 1, node_column + 1),
@@ -176,7 +163,8 @@ fn get_edges(
             ));
         }
     }
-    (fence_points, fence_edges)
+
+    fence_edges
 }
 
 fn part_1(file_path: String) -> u64 {
@@ -185,7 +173,7 @@ fn part_1(file_path: String) -> u64 {
 
     let mut result = 0;
     for region in regions {
-        let (_, fence_edges) = get_edges(&region);
+        let fence_edges = get_edges(&region);
 
         result += region.len() * fence_edges.len();
     }
@@ -199,12 +187,18 @@ fn part_2(file_path: String) -> u64 {
 
     let mut result = 0;
     for region in regions {
-        let (fence_points, fence_edges) = get_edges(&region);
+        let fence_edges = get_edges(&region);
+
+        let mut fence_points = fence_edges
+            .iter()
+            .copied()
+            .flat_map(|(from, to, _)| vec![from, to])
+            .unique()
+            .collect::<Vec<_>>();
 
         let mut combined_fence_edges = HashSet::new();
-        let mut fence_points_vec = fence_points.iter().copied().collect::<Vec<_>>();
 
-        while let Some(point) = fence_points_vec.pop() {
+        while let Some(point) = fence_points.pop() {
             for direction in [Direction::Up, Direction::Down] {
                 // Go left
                 let mut left_point = point;
