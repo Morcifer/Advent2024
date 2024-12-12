@@ -1,5 +1,5 @@
 use crate::file_utilities::read_lines;
-use crate::map_utilities::{DIRECTIONS, Direction, Point};
+use crate::map_utilities::{Direction, Point, DIRECTIONS};
 
 use itertools::Itertools;
 use std::collections::{HashSet, VecDeque};
@@ -102,10 +102,7 @@ fn get_regions(map: &[Vec<char>]) -> Vec<Vec<Point>> {
 }
 
 fn get_edges(region: &Vec<Point>) -> HashSet<(Point, Point, Direction)> {
-    let region_hashset = region
-        .iter()
-        .copied()
-        .collect::<HashSet<_>>();
+    let region_hashset = region.iter().copied().collect::<HashSet<_>>();
 
     let mut fence_edges = HashSet::new();
 
@@ -191,21 +188,21 @@ fn part_2(file_path: String) -> u64 {
                 // Go left
                 let mut left_point = point;
                 while fence_edges.contains(&(
-                    Point::new(left_point.row, left_point.column - 1),
+                    left_point.unbound_neighbour(Direction::Left),
                     left_point,
                     direction,
                 )) {
-                    left_point = Point::new(left_point.row, left_point.column - 1);
+                    left_point = left_point.unbound_neighbour(Direction::Left);
                 }
 
                 // Go right
                 let mut right_point = point;
                 while fence_edges.contains(&(
                     right_point,
-                    Point::new(right_point.row, right_point.column + 1),
+                    right_point.unbound_neighbour(Direction::Right),
                     direction,
                 )) {
-                    right_point = Point::new(right_point.row, right_point.column + 1);
+                    right_point = right_point.unbound_neighbour(Direction::Right);
                 }
 
                 if right_point != left_point {
@@ -216,18 +213,22 @@ fn part_2(file_path: String) -> u64 {
             for direction in [Direction::Right, Direction::Left] {
                 // Go up
                 let mut up_point = point;
-                while fence_edges.contains(&(Point::new(up_point.row - 1, up_point.column), up_point, direction)) {
-                    up_point = Point::new(up_point.row - 1, up_point.column);
+                while fence_edges.contains(&(
+                    up_point.unbound_neighbour(Direction::Up),
+                    up_point,
+                    direction,
+                )) {
+                    up_point = up_point.unbound_neighbour(Direction::Up);
                 }
 
                 // Go down
                 let mut down_point = point;
                 while fence_edges.contains(&(
                     down_point,
-                    Point::new(down_point.row + 1, down_point.column),
+                    down_point.unbound_neighbour(Direction::Down),
                     direction,
                 )) {
-                    down_point = Point::new(down_point.row + 1, down_point.column);
+                    down_point = down_point.unbound_neighbour(Direction::Down);
                 }
 
                 if up_point != down_point {

@@ -47,7 +47,11 @@ impl Point {
         let map_size = map_size as isize;
         let neighbour = self.unbound_neighbour(direction);
 
-        if neighbour.row < 0 || neighbour.row >= map_size || neighbour.column < 0 || neighbour.column >= map_size {
+        if neighbour.row < 0
+            || neighbour.row >= map_size
+            || neighbour.column < 0
+            || neighbour.column >= map_size
+        {
             return None;
         }
 
