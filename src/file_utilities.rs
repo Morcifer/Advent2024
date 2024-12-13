@@ -51,7 +51,6 @@ where
     (collection_1, collection_2)
 }
 
-
 #[allow(dead_code)]
 pub fn read_chunks<P>(filename: P) -> Vec<Vec<String>>
 where

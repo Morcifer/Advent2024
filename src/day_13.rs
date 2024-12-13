@@ -1,3 +1,5 @@
+use std::cmp;
+
 use crate::file_utilities::read_chunks;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -8,7 +10,11 @@ struct GameData {
 }
 
 fn parse_lines_to_game_data(line: Vec<String>) -> GameData {
-    let mut game_data = GameData { button_a_move: (0, 0), button_b_move: (0, 0), prize: (0, 0) };
+    let mut game_data = GameData {
+        button_a_move: (0, 0),
+        button_b_move: (0, 0),
+        prize: (0, 0),
+    };
     for (index, line) in line.iter().enumerate() {
         let colon_split = line.split(":").map(str::trim).last().unwrap();
         let comma_split = colon_split.split(",").map(str::trim).collect::<Vec<_>>();
@@ -19,7 +25,7 @@ fn parse_lines_to_game_data(line: Vec<String>) -> GameData {
             0 => game_data.button_a_move = (x, y),
             1 => game_data.button_b_move = (x, y),
             2 => game_data.prize = (x, y),
-            _ => panic!("I'm having too many strings here...")
+            _ => panic!("I'm having too many strings here..."),
         };
     }
 
@@ -42,56 +48,47 @@ pub fn run(file_path: String, part: i32) -> i64 {
     }
 }
 
+fn get_cost_for_clicks(button_a_clicks: i64, button_b_clicks: i64) -> i64 {
+    3 * button_a_clicks + button_b_clicks
+}
+
 fn get_cost_for_game(game: GameData) -> i64 {
-    let button_a_x_moves_more = game.button_a_move.0 >= game.button_b_move.0;
+    // Wikipedia expression for inverse of 2x2 matrix for the win.
+    let a = game.button_a_move.0;
+    let b = game.button_b_move.0;
+    let c = game.button_a_move.1;
+    let d = game.button_b_move.1;
 
-    let (modulo_x, modulo_y) = if button_a_x_moves_more {
-        (game.button_a_move.0 % game.button_b_move.0, game.button_a_move.1 % game.button_b_move.1)
-    } else {
-        (game.button_b_move.0 % game.button_a_move.0, game.button_b_move.1 % game.button_a_move.1)
-    };
+    let composite = a * d - b * c;
 
-    if modulo_x == 0 && modulo_y == 0 {
-        // Button A is a multiple of button B, or vice versa
-        // println!("Button A is a multiple of button B, or vice versa");
-        if button_a_x_moves_more && (game.button_a_move.0 / game.button_b_move.0 > 3) {
-            // Use only button A, it's cheaper
-            let prize_clicks = game.prize.0 / game.button_a_move.0;
-            let target_x = prize_clicks * game.button_a_move.0;
-            let target_y = prize_clicks * game.button_a_move.1;
+    if composite == 0 {
+        // One of the buttons is a linear combination of the other.
+        // We'll return the one that's cheaper.
+        let required_button_a = game.prize.0 / game.button_a_move.0;
+        let required_button_b = game.prize.0 / game.button_b_move.0;
 
-            if target_x == game.prize.0 && target_y == game.prize.1 {
-                return 3 * (game.prize.0 / game.button_a_move.0);
-            }
-        } else {
-            // Use only button A, it's cheaper
-            let prize_clicks = game.prize.0 / game.button_b_move.0;
-            let target_x = prize_clicks * game.button_b_move.0;
-            let target_y = prize_clicks * game.button_b_move.1;
+        let target_x = required_button_a * game.button_a_move.0;
+        let target_y = required_button_a * game.button_a_move.1;
 
-            if target_x == game.prize.0 && target_y == game.prize.1 {
-                return 1 * (game.prize.0 / game.button_b_move.0);
-            }
+        if target_x == game.prize.0 && target_y == game.prize.1 {
+            return cmp::min(
+                get_cost_for_clicks(required_button_a, 0),
+                get_cost_for_clicks(0, required_button_b),
+            );
         }
 
         return 0;
     }
 
     // Combination of A and B!
-    let a = game.button_a_move.0;
-    let b = game.button_b_move.0;
-    let c = game.button_a_move.1;
-    let d = game.button_b_move.1;
-
-    let number = a * d - b * c;
-    let prize_a_clicks = (d * game.prize.0 - b * game.prize.1) / number;
-    let prize_b_clicks = (-c * game.prize.0 + a * game.prize.1) / number;
+    let prize_a_clicks = (d * game.prize.0 - b * game.prize.1) / composite;
+    let prize_b_clicks = (-c * game.prize.0 + a * game.prize.1) / composite;
 
     let final_x = prize_a_clicks * game.button_a_move.0 + prize_b_clicks * game.button_b_move.0;
     let final_y = prize_a_clicks * game.button_a_move.1 + prize_b_clicks * game.button_b_move.1;
 
     if final_x == game.prize.0 && final_y == game.prize.1 {
-        return 3 * prize_a_clicks + 1 * prize_b_clicks;
+        return get_cost_for_clicks(prize_a_clicks, prize_b_clicks);
     }
 
     0
@@ -100,29 +97,20 @@ fn get_cost_for_game(game: GameData) -> i64 {
 fn part_1(file_path: String) -> i64 {
     let games = parse_data(file_path);
 
-    let mut result = 0;
-
-    for game in games {
-        result += get_cost_for_game(game);
-    }
-
-    result
+    games.into_iter().map(get_cost_for_game).sum()
 }
-
 
 fn part_2(file_path: String) -> i64 {
     let games = parse_data(file_path);
 
-    let mut result = 0;
-
-    for game in games {
-        let mut game = game;
-        game.prize = (game.prize.0 + 10000000000000, game.prize.1 + 10000000000000);
-
-        result += get_cost_for_game(game);
-    }
-
-    result
+    games
+        .into_iter()
+        .map(|game| {
+            let mut game = game;
+            game.prize = (game.prize.0 + 10000000000000, game.prize.1 + 10000000000000);
+            get_cost_for_game(game)
+        })
+        .sum()
 }
 
 #[cfg(test)]
