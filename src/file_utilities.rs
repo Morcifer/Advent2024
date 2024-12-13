@@ -1,5 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
 use std::fs::File;
-#[allow(unused_imports)]
 use std::io::{self, BufRead, Read};
 use std::path::Path;
 
@@ -9,7 +10,6 @@ pub fn get_file_path(is_test: bool, day: u32, suffix: Option<&str>) -> String {
     format!("./data/{sub_folder}/day_{day}{suffix}.txt")
 }
 
-#[allow(dead_code)]
 pub fn read_lines<P>(filename: P) -> Vec<String>
 where
     P: AsRef<Path>,
@@ -21,7 +21,6 @@ where
         .collect()
 }
 
-#[allow(dead_code)]
 pub fn read_two_chunks<P>(filename: P) -> (Vec<String>, Vec<String>)
 where
     P: AsRef<Path>,
@@ -51,7 +50,6 @@ where
     (collection_1, collection_2)
 }
 
-#[allow(dead_code)]
 pub fn read_chunks<P>(filename: P) -> Vec<Vec<String>>
 where
     P: AsRef<Path>,
@@ -78,7 +76,6 @@ where
     collections
 }
 
-#[allow(dead_code)]
 pub fn read_as_single_line<P>(filename: P) -> String
 where
     P: AsRef<Path>,
