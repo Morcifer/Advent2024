@@ -51,6 +51,34 @@ where
     (collection_1, collection_2)
 }
 
+
+#[allow(dead_code)]
+pub fn read_chunks<P>(filename: P) -> Vec<Vec<String>>
+where
+    P: AsRef<Path>,
+{
+    let file = File::open(filename).unwrap();
+
+    let mut collections = Vec::new();
+    let mut current_collection = Vec::new();
+
+    // TODO: Is there a way to linq-statement this?
+    for line in io::BufReader::new(file).lines() {
+        let line = line.unwrap();
+
+        if line.trim().is_empty() {
+            collections.push(current_collection);
+            current_collection = Vec::new();
+            continue;
+        }
+
+        current_collection.push(line);
+    }
+
+    collections.push(current_collection);
+    collections
+}
+
 #[allow(dead_code)]
 pub fn read_as_single_line<P>(filename: P) -> String
 where

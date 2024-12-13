@@ -1,3 +1,5 @@
+#[allow(dead_code)]
+
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Direction {
     Up,
