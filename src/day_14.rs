@@ -1,4 +1,5 @@
 use crate::file_utilities::read_lines;
+use itertools::Itertools;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 struct Robot {
@@ -37,7 +38,7 @@ fn parse_data(file_path: String) -> Vec<Robot> {
 }
 
 #[allow(dead_code)]
-pub fn run(file_path: String, part: i32) -> u64 {
+pub fn run(file_path: String, part: i32) -> usize {
     match part {
         1 => part_1(file_path),
         2 => part_2(file_path),
@@ -64,14 +65,8 @@ fn print_robots(positions: &Vec<(i64, i64)>, max_x: i64, max_y: i64) {
         }
     }
 
-    let might_be_a_tree = map.iter().flatten().all(|c| *c == '1' || *c == '.');
-
-    if might_be_a_tree {
-        for row in map {
-            println!("{}", row.iter().collect::<String>());
-        }
-
-        panic!("I think this one might be it!")
+    for row in map {
+        println!("{}", row.iter().collect::<String>());
     }
 }
 
@@ -79,8 +74,10 @@ fn get_robots_after_seconds(
     robots: &[Robot],
     max_x: i64,
     max_y: i64,
-    seconds: i64,
+    seconds: usize,
 ) -> Vec<(i64, i64)> {
+    let seconds = seconds as i64;
+
     robots
         .iter()
         .copied()
@@ -94,7 +91,7 @@ fn get_robots_after_seconds(
         .collect::<Vec<_>>()
 }
 
-fn part_1(file_path: String) -> u64 {
+fn part_1(file_path: String) -> usize {
     let robots = parse_data(file_path);
 
     let robot_positions = robots
@@ -105,36 +102,28 @@ fn part_1(file_path: String) -> u64 {
     let max_x = *robot_positions.iter().map(|(x, _)| x).max().unwrap();
     let max_y = *robot_positions.iter().map(|(_, y)| y).max().unwrap();
 
-    // print_robots(&robot_positions, max_x, max_y);
-
     let robots_after_100_seconds = get_robots_after_seconds(&robots, max_x, max_y, 100);
-
-    // print_robots(&robots_after_100_seconds, max_x, max_y);
 
     let quadrant_x = max_x / 2;
     let quadrant_y = max_y / 2;
 
-    let quadrant_1_robots = robots_after_100_seconds
-        .iter()
-        .filter(|(x, y)| *x < quadrant_x && *y < quadrant_y)
-        .count();
-    let quadrant_2_robots = robots_after_100_seconds
-        .iter()
-        .filter(|(x, y)| *x > quadrant_x && *y < quadrant_y)
-        .count();
-    let quadrant_3_robots = robots_after_100_seconds
-        .iter()
-        .filter(|(x, y)| *x < quadrant_x && *y > quadrant_y)
-        .count();
-    let quadrant_4_robots = robots_after_100_seconds
-        .iter()
-        .filter(|(x, y)| *x > quadrant_x && *y > quadrant_y)
-        .count();
+    let mut quadrants = vec![vec![0, 0], vec![0, 0]];
 
-    (quadrant_1_robots * quadrant_2_robots * quadrant_3_robots * quadrant_4_robots) as u64
+    for (x, y) in robots_after_100_seconds.into_iter() {
+        if x == quadrant_x || y == quadrant_y {
+            continue;
+        }
+
+        let q_x = if x > quadrant_x { 1 } else { 0 };
+        let q_y = if y > quadrant_y { 1 } else { 0 };
+
+        quadrants[q_x][q_y] += 1;
+    }
+
+    quadrants.into_iter().flatten().product()
 }
 
-fn part_2(file_path: String) -> u64 {
+fn part_2(file_path: String) -> usize {
     let robots = parse_data(file_path);
 
     let robot_positions = robots
@@ -145,13 +134,13 @@ fn part_2(file_path: String) -> u64 {
     let max_x = *robot_positions.iter().map(|(x, _)| x).max().unwrap();
     let max_y = *robot_positions.iter().map(|(_, y)| y).max().unwrap();
 
-    print_robots(&robot_positions, max_x, max_y);
-
     for seconds in 0..20000 {
-        println!("After {seconds} seconds");
         let robots_after_seconds = get_robots_after_seconds(&robots, max_x, max_y, seconds);
 
-        print_robots(&robots_after_seconds, max_x, max_y);
+        if robots_after_seconds.iter().unique().count() == robots_after_seconds.len() {
+            print_robots(&robots_after_seconds, max_x, max_y);
+            return seconds;
+        }
     }
 
     0
@@ -166,7 +155,13 @@ mod tests {
     #[rstest]
     #[case(true, 12)]
     #[case(false, 226236192)]
-    fn test_part_1(#[case] is_test: bool, #[case] expected: u64) {
+    fn test_part_1(#[case] is_test: bool, #[case] expected: usize) {
         assert_eq!(expected, part_1(get_file_path(is_test, 14, None)));
+    }
+
+    #[rstest]
+    #[case(false, 8168)]
+    fn test_part_2(#[case] is_test: bool, #[case] expected: usize) {
+        assert_eq!(expected, part_2(get_file_path(is_test, 14, None)));
     }
 }
