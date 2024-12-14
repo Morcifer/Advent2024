@@ -64,8 +64,14 @@ fn print_robots(positions: &Vec<(i64, i64)>, max_x: i64, max_y: i64) {
         }
     }
 
-    for row in map {
-        println!("{}", row.iter().collect::<String>());
+    let might_be_a_tree = map.iter().flatten().all(|c| *c == '1' || *c == '.');
+
+    if might_be_a_tree {
+        for row in map {
+            println!("{}", row.iter().collect::<String>());
+        }
+
+        panic!("I think this one might be it!")
     }
 }
 
@@ -142,10 +148,10 @@ fn part_2(file_path: String) -> u64 {
     print_robots(&robot_positions, max_x, max_y);
 
     for seconds in 0..20000 {
-        // println!("After {seconds} seconds");
-        let _robots_after_100_seconds = get_robots_after_seconds(&robots, max_x, max_y, seconds);
+        println!("After {seconds} seconds");
+        let robots_after_seconds = get_robots_after_seconds(&robots, max_x, max_y, seconds);
 
-        // print_robots(&robots_after_100_seconds, max_x, max_y);
+        print_robots(&robots_after_seconds, max_x, max_y);
     }
 
     0
@@ -162,12 +168,5 @@ mod tests {
     #[case(false, 226236192)]
     fn test_part_1(#[case] is_test: bool, #[case] expected: u64) {
         assert_eq!(expected, part_1(get_file_path(is_test, 14, None)));
-    }
-
-    #[rstest]
-    #[case(true, 0)]
-    #[case(false, 0)]
-    fn test_part_2(#[case] is_test: bool, #[case] expected: u64) {
-        assert_eq!(expected, part_2(get_file_path(is_test, 14, None)));
     }
 }
