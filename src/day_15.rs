@@ -27,7 +27,9 @@ impl Map {
         let max_row = self.walls.iter().map(|w| w.row).max().unwrap();
         let max_column = self.walls.iter().map(|w| w.column).max().unwrap();
 
-        let mut map = (0..=max_row).map(|_| (0..=max_column).map(|_| '.').collect_vec()).collect_vec();
+        let mut map = (0..=max_row)
+            .map(|_| (0..=max_column).map(|_| '.').collect_vec())
+            .collect_vec();
 
         for wall in self.walls.iter() {
             map[wall.row as usize][wall.column as usize] = '#';
@@ -50,10 +52,6 @@ impl Map {
         for row in map {
             println!("{}", row.iter().collect::<String>());
         }
-    }
-
-    fn print_larger_map(&self) {
-
     }
 
     fn make_map_bigger(&mut self) {
@@ -144,14 +142,36 @@ impl Map {
         let mut box_lefts_to_move = HashSet::new();
 
         match direction {
-            Direction::Right => spots_to_move.push(vec![desired_spot.unbound_neighbour(Direction::Right)].into_iter().collect::<HashSet<_>>()),
-            Direction::Left => spots_to_move.push(vec![desired_spot.unbound_neighbour(Direction::Left)].into_iter().collect::<HashSet<_>>()),
+            Direction::Right => spots_to_move.push(
+                vec![desired_spot.unbound_neighbour(Direction::Right)]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+            ),
+            Direction::Left => spots_to_move.push(
+                vec![desired_spot.unbound_neighbour(Direction::Left)]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+            ),
             _ => {
                 if self.large_boxes_lefts.contains(&desired_spot) {
-                    spots_to_move.push(vec![desired_spot, desired_spot.unbound_neighbour(Direction::Right)].into_iter().collect::<HashSet<_>>());
+                    spots_to_move.push(
+                        vec![
+                            desired_spot,
+                            desired_spot.unbound_neighbour(Direction::Right),
+                        ]
+                        .into_iter()
+                        .collect::<HashSet<_>>(),
+                    );
                     // box_lefts_to_move.push(desired_spot);
                 } else {
-                    spots_to_move.push(vec![desired_spot, desired_spot.unbound_neighbour(Direction::Left)].into_iter().collect::<HashSet<_>>());
+                    spots_to_move.push(
+                        vec![
+                            desired_spot,
+                            desired_spot.unbound_neighbour(Direction::Left),
+                        ]
+                        .into_iter()
+                        .collect::<HashSet<_>>(),
+                    );
                     // box_lefts_to_move.push(desired_spot.unbound_neighbour(Direction::Left));
                 };
             }
@@ -159,7 +179,9 @@ impl Map {
 
         let mut last_spots_to_move = spots_to_move.last().unwrap().clone();
 
-        while last_spots_to_move.iter().any(|spot| self.large_boxes_lefts.contains(&spot)|| self.large_boxes_rights.contains(&spot)) {
+        while last_spots_to_move.iter().any(|spot| {
+            self.large_boxes_lefts.contains(spot) || self.large_boxes_rights.contains(spot)
+        }) {
             // println!("Need to move spots {last_spots_to_move:?} to {direction:?}");
 
             let mut new_spots_to_move = HashSet::new();
@@ -168,24 +190,30 @@ impl Map {
                 // Update left-sides for spots
                 if self.large_boxes_lefts.contains(&spot) {
                     box_lefts_to_move.insert(spot);
-                } else if self.large_boxes_rights.contains(&spot){
+                } else if self.large_boxes_rights.contains(&spot) {
                     box_lefts_to_move.insert(spot.unbound_neighbour(Direction::Left));
                 }
 
                 match direction {
                     Direction::Right => {
                         new_spots_to_move.insert(spot.unbound_neighbour(Direction::Right));
-                    },
+                    }
                     Direction::Left => {
                         new_spots_to_move.insert(spot.unbound_neighbour(Direction::Left));
-                    },
+                    }
                     _ => {
                         if self.large_boxes_lefts.contains(&spot) {
                             new_spots_to_move.insert(spot.unbound_neighbour(direction));
-                            new_spots_to_move.insert(spot.unbound_neighbour(direction).unbound_neighbour(Direction::Right));
+                            new_spots_to_move.insert(
+                                spot.unbound_neighbour(direction)
+                                    .unbound_neighbour(Direction::Right),
+                            );
                         } else if self.large_boxes_rights.contains(&spot) {
                             new_spots_to_move.insert(spot.unbound_neighbour(direction));
-                            new_spots_to_move.insert(spot.unbound_neighbour(direction).unbound_neighbour(Direction::Left));
+                            new_spots_to_move.insert(
+                                spot.unbound_neighbour(direction)
+                                    .unbound_neighbour(Direction::Left),
+                            );
                         };
                     }
                 }
@@ -199,7 +227,11 @@ impl Map {
             last_spots_to_move = new_spots_to_move.clone();
         }
 
-        if spots_to_move.into_iter().flatten().any(|spot| self.walls.contains(&spot)) {
+        if spots_to_move
+            .into_iter()
+            .flatten()
+            .any(|spot| self.walls.contains(&spot))
+        {
             // any sort of wall would get us stuck.
             // println!("Hit a wall when going {direction:?}");
             return;
@@ -214,7 +246,11 @@ impl Map {
         let old_box_lefts_to_move = box_lefts_to_move.clone();
         // println!("Need to move left-box {old_box_lefts_to_move:?}");
 
-        let old_box_rights_to_move = box_lefts_to_move.iter().copied().map(|spot| spot.unbound_neighbour(Direction::Right)).collect_vec();
+        let old_box_rights_to_move = box_lefts_to_move
+            .iter()
+            .copied()
+            .map(|spot| spot.unbound_neighbour(Direction::Right))
+            .collect_vec();
 
         let new_box_lefts = box_lefts_to_move
             .into_iter()
@@ -222,7 +258,11 @@ impl Map {
             .collect_vec();
         // println!("Will move them to {new_box_lefts:?}");
 
-        let new_box_rights = new_box_lefts.iter().copied().map(|spot| spot.unbound_neighbour(Direction::Right)).collect_vec();
+        let new_box_rights = new_box_lefts
+            .iter()
+            .copied()
+            .map(|spot| spot.unbound_neighbour(Direction::Right))
+            .collect_vec();
 
         for old in old_box_lefts_to_move {
             self.large_boxes_lefts.remove(&old);
@@ -337,7 +377,7 @@ mod tests {
 
     #[rstest]
     #[case(true, 9021)]
-    #[case(false, 0)]
+    #[case(false, 1543338)]
     fn test_part_2(#[case] is_test: bool, #[case] expected: usize) {
         assert_eq!(expected, part_2(get_file_path(is_test, 15, None)));
     }
