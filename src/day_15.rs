@@ -199,7 +199,7 @@ impl Map {
             last_spots_to_move = new_spots_to_move.clone();
         }
 
-        if last_spots_to_move.iter().any(|spot| self.walls.contains(&spot)) {
+        if spots_to_move.into_iter().flatten().any(|spot| self.walls.contains(&spot)) {
             // any sort of wall would get us stuck.
             // println!("Hit a wall when going {direction:?}");
             return;
@@ -289,8 +289,10 @@ pub fn run(file_path: String, part: i32) -> usize {
 
 fn part_1(file_path: String) -> usize {
     let (mut map, directions) = parse_data(file_path);
+
     // println!("robot {:?}, walls {:?}, boxes {:?}", map.robot, map.walls, map.boxes);
     // println!("{directions:?}");
+    map.print_to_console();
 
     for direction in directions {
         map.move_robot(direction);
@@ -314,7 +316,7 @@ fn part_2(file_path: String) -> usize {
         // break;
     }
 
-    map.large_boxes_lefts // too low.
+    map.large_boxes_lefts
         .into_iter()
         .map(|point| (point.row * 100) as usize + point.column as usize)
         .sum()
