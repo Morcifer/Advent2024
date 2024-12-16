@@ -8,8 +8,7 @@ struct Node {
     point: Point,
     direction: Direction,
     score: usize,
-    history: Vec<(Point, Direction)>,
-    history_hashset: HashSet<(Point, Direction)>,
+    history: HashSet<(Point, Direction)>,
 }
 
 impl Node {
@@ -17,56 +16,72 @@ impl Node {
         point: Point,
         direction: Direction,
         score: usize,
-        old_history: Vec<(Point, Direction)>,
-        old_history_hashset: HashSet<(Point, Direction)>,
+        old_history: HashSet<(Point, Direction)>,
     ) -> Self {
-        let mut history = old_history;
-        history.push((point, direction));
-
-        let mut history_hashset = old_history_hashset.clone();
-        history_hashset.insert((point, direction));
+        let mut history = old_history.clone();
+        history.insert((point, direction));
 
         Self {
             point,
             direction,
             score,
             history,
-            history_hashset,
         }
     }
 
-    fn turn_right(&self) -> Self {
-        Self::new(
+    fn turn_right(&self) -> Option<Self> {
+        if self
+            .history
+            .contains(&(self.point, self.direction.turn_right()))
+        {
+            return None;
+        }
+
+        Some(Self::new(
             self.point,
             self.direction.turn_right(),
             self.score + 1000,
             self.history.clone(),
-            self.history_hashset.clone(),
-        )
+        ))
     }
 
-    fn turn_left(&self) -> Self {
-        Self::new(
+    fn turn_left(&self) -> Option<Self> {
+        if self
+            .history
+            .contains(&(self.point, self.direction.turn_left()))
+        {
+            return None;
+        }
+
+        Some(Self::new(
             self.point,
             self.direction.turn_left(),
             self.score + 1000,
             self.history.clone(),
-            self.history_hashset.clone(),
-        )
+        ))
     }
 
-    fn move_forward(&self) -> Self {
-        Self::new(
+    fn move_forward(&self) -> Option<Self> {
+        if self
+            .history
+            .contains(&(self.point.unbound_neighbour(self.direction), self.direction))
+        {
+            return None;
+        }
+
+        if self.history.contains(&(
+            self.point.unbound_neighbour(self.direction),
+            self.direction.reverse(),
+        )) {
+            return None;
+        }
+
+        Some(Self::new(
             self.point.unbound_neighbour(self.direction),
             self.direction,
             self.score + 1,
             self.history.clone(),
-            self.history_hashset.clone(),
-        )
-    }
-
-    fn has_loop(&self) -> bool {
-        self.history.len() > self.history_hashset.len()
+        ))
     }
 }
 
@@ -128,13 +143,8 @@ impl Map {
 
     fn find_path(&self) -> usize {
         let mut heap = BinaryHeap::new();
-        heap.push(Node::new(
-            self.start,
-            Direction::Right,
-            0,
-            vec![],
-            HashSet::new(),
-        ));
+
+        heap.push(Node::new(self.start, Direction::Right, 0, HashSet::new()));
 
         while let Some(current_node) = heap.pop() {
             if current_node.point == self.end {
@@ -148,39 +158,45 @@ impl Map {
                 continue;
             }
 
-            if current_node.has_loop() {
-                continue;
+            if let Some(new_node) = current_node.move_forward() {
+                heap.push(new_node);
             }
 
-            heap.push(current_node.move_forward());
-
             // Check for hallway - only turn if you're not in one.
-            match current_node.direction {
+            let is_in_hallway = match current_node.direction {
                 Direction::Up | Direction::Down => {
-                    if !self
-                        .walls
+                    self.walls
                         .contains(&current_node.point.unbound_neighbour(Direction::Left))
-                        || !self
+                        && self
                             .walls
                             .contains(&current_node.point.unbound_neighbour(Direction::Right))
-                    {
-                        heap.push(current_node.turn_right());
-                        heap.push(current_node.turn_left());
-                    }
                 }
 
                 Direction::Left | Direction::Right => {
-                    if !self
-                        .walls
+                    self.walls
                         .contains(&current_node.point.unbound_neighbour(Direction::Up))
-                        || !self
+                        && self
                             .walls
                             .contains(&current_node.point.unbound_neighbour(Direction::Down))
-                    {
-                        heap.push(current_node.turn_right());
-                        heap.push(current_node.turn_left());
-                    }
                 }
+            };
+
+            if is_in_hallway {
+                continue;
+            }
+
+            if let Some(new_node) = current_node.turn_right() {
+                heap.push(new_node);
+            }
+
+            if let Some(new_node) = current_node.turn_left() {
+                heap.push(new_node);
+            }
+
+
+            if heap.len() > 2_000_000 {
+                println!("Heap is huge, let's make it smaller!");
+                heap = heap.drain().take(1_000_000).collect();
             }
         }
 
