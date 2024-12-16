@@ -1,6 +1,7 @@
 use crate::file_utilities::read_lines;
-use crate::map_utilities::{Direction, Point};
-use std::collections::{BinaryHeap, HashSet};
+use crate::map_utilities::{Direction, Point, DIRECTIONS};
+use std::cmp;
+use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
 use itertools::Itertools;
 
@@ -60,29 +61,6 @@ impl Node {
             self.history.clone(),
         ))
     }
-
-    fn move_forward(&self) -> Option<Self> {
-        if self
-            .history
-            .contains(&(self.point.unbound_neighbour(self.direction), self.direction))
-        {
-            return None;
-        }
-
-        if self.history.contains(&(
-            self.point.unbound_neighbour(self.direction),
-            self.direction.reverse(),
-        )) {
-            return None;
-        }
-
-        Some(Self::new(
-            self.point.unbound_neighbour(self.direction),
-            self.direction,
-            self.score + 1,
-            self.history.clone(),
-        ))
-    }
 }
 
 impl PartialOrd for Node {
@@ -112,6 +90,147 @@ struct Map {
     walls: HashSet<Point>,
 }
 
+struct Graph {
+    start: Point,
+    end: Point,
+    nodes: HashSet<(Point, Direction)>,
+    edges: HashMap<(Point, Direction), (Point, usize)>, // From (point, direction) to (point, required cost).
+}
+
+impl Graph {
+    fn new(start: Point, end: Point) -> Self {
+        Self {
+            start,
+            end,
+            nodes: HashSet::new(),
+            edges: HashMap::new(),
+        }
+    }
+
+    fn add_node(&mut self, node: Point) {
+        for direction in DIRECTIONS.into_iter() {
+            self.nodes.insert((node, direction));
+        }
+    }
+
+    fn add_edge(&mut self, from: Point, to: Point, direction: Direction, cost: usize) {
+        let key = (from, direction);
+
+        if self.edges.contains_key(&key) {
+            return;
+        }
+
+        self.edges.insert(key, (to, cost));
+    }
+
+    fn find_path(&self) -> usize {
+        let mut heap = BinaryHeap::new();
+        // let mut vec_deque = VecDeque::new();
+
+        let mut best_nodes = self
+            .nodes
+            .iter()
+            .map(|&node| (node, usize::MAX))
+            .collect::<HashMap<(Point, Direction), usize>>();
+
+        let mut best_found = usize::MAX;
+
+        heap.push(Node::new(self.start, Direction::Right, 0, HashSet::new()));
+        // vec_deque.push_front(Node::new(self.start, Direction::Right, 0, HashSet::new()));
+
+        while let Some(current_node) = heap.pop() {
+        // while let Some(current_node) = vec_deque.pop_front() {
+        //     let heap_size = vec_deque.len();
+            let heap_size = heap.len();
+            if heap_size % 100000 == 0 {
+                println!(
+                    "Size of heap is {heap_size}. Current score is {} and best score {best_found}.",
+                    current_node.score
+                );
+            }
+
+            if current_node.point == self.end {
+                // println!("Score {}", current_node.score);
+                // println!("History {:?}", current_node.history);
+                best_found = cmp::min(current_node.score, best_found);
+                println!("Found best score of {best_found}!");
+                continue;
+                // return current_node.score;
+            }
+
+            if current_node.score > best_found {
+                println!("Size of heap is {heap_size}. Cutting branch due to best solution found...");
+                continue;
+            }
+
+            let key = (current_node.point, current_node.direction);
+            let best_cost = best_nodes.get(&key).unwrap();
+
+            if *best_cost <= current_node.score {
+                println!("Size of heap is {heap_size}. Cutting branch at {key:?} due to same or better way to get here with {} vs. {best_cost}...", current_node.score);
+                continue;
+            }
+
+            best_nodes.insert(key, current_node.score);
+
+            if let Some(edge) = self
+                .edges
+                .get(&(current_node.point, current_node.direction))
+            {
+                // if DIRECTIONS
+                //     .into_iter()
+                //     .any(|direction| current_node.history.contains(&(edge.0, direction)))
+                // {
+                //     continue;
+                // }
+
+                // if current_node.history.contains(&(edge.0, current_node.direction))
+                // {
+                //     println!("History repeats itself at {:?}, {:?}", edge.0, current_node.direction);
+                //     continue;
+                // }
+
+                let new_node = Node::new(
+                    edge.0,
+                    current_node.direction,
+                    current_node.score + edge.1,
+                    current_node.history.clone(),
+                );
+
+                heap.push(new_node);
+                // vec_deque.push_back(new_node);
+            }
+
+            if let Some(right_node) = current_node.turn_right() {
+                heap.push(right_node);
+                // vec_deque.push_back(right_node);
+            }
+
+            if let Some(left_node) = current_node.turn_left() {
+                heap.push(left_node);
+                // vec_deque.push_back(left_node);
+            }
+
+            // if let Some(left_node) = current_node.turn_left() {
+            //     // heap.push(left_node);
+            //     if let Some(left_left_node) = left_node.turn_left() {
+            //         // heap.push(left_node);
+            //         heap.push_back(left_left_node);
+            //     }
+            // }
+
+            // let heap_size = heap.len();
+            // if heap_size > 2000000 {
+            //     println!("Draining heap");
+            //     heap = heap.drain().take(1000000).collect();
+            //     // println!("Size of heap is {heap_size}. Current best score is {}.", current_node.score);
+            // }
+        }
+
+        best_found
+    }
+}
+
 impl Map {
     fn new() -> Self {
         Self {
@@ -121,87 +240,74 @@ impl Map {
         }
     }
 
-    fn print_to_console(&self) {
-        let max_row = self.walls.iter().map(|w| w.row).max().unwrap();
-        let max_column = self.walls.iter().map(|w| w.column).max().unwrap();
+    fn into_graph(self) -> Graph {
+        let mut graph = Graph::new(self.start, self.end);
 
-        let mut map = (0..=max_row)
-            .map(|_| (0..=max_column).map(|_| '.').collect_vec())
-            .collect_vec();
+        let mut nodes = HashSet::new();
 
-        for wall in self.walls.iter() {
-            map[wall.row()][wall.column()] = '#';
-        }
+        // First - look for intersections and corners. Those will be our nodes.
+        for row in 0..=self.start.row() {
+            for column in 0..=self.end.column() {
+                let point = Point::new(row as isize, column as isize);
 
-        map[self.start.row()][self.start.column()] = 'S';
-        map[self.end.row()][self.end.column()] = 'E';
-
-        for row in map {
-            println!("{}", row.iter().collect::<String>());
-        }
-    }
-
-    fn find_path(&self) -> usize {
-        let mut heap = BinaryHeap::new();
-
-        heap.push(Node::new(self.start, Direction::Right, 0, HashSet::new()));
-
-        while let Some(current_node) = heap.pop() {
-            if current_node.point == self.end {
-                // println!("Score {}", current_node.score);
-                // println!("History {:?}", current_node.history);
-
-                return current_node.score;
-            }
-
-            if self.walls.contains(&current_node.point) {
-                continue;
-            }
-
-            if let Some(new_node) = current_node.move_forward() {
-                heap.push(new_node);
-            }
-
-            // Check for hallway - only turn if you're not in one.
-            let is_in_hallway = match current_node.direction {
-                Direction::Up | Direction::Down => {
-                    self.walls
-                        .contains(&current_node.point.unbound_neighbour(Direction::Left))
-                        && self
-                            .walls
-                            .contains(&current_node.point.unbound_neighbour(Direction::Right))
+                if self.walls.contains(&point) {
+                    continue;
                 }
 
-                Direction::Left | Direction::Right => {
-                    self.walls
-                        .contains(&current_node.point.unbound_neighbour(Direction::Up))
-                        && self
-                            .walls
-                            .contains(&current_node.point.unbound_neighbour(Direction::Down))
+                let neighbours = DIRECTIONS
+                    .into_iter()
+                    .map(|direction| (direction, point.unbound_neighbour(direction)))
+                    .filter(|(_, point)| !self.walls.contains(point))
+                    .collect::<HashMap<_, _>>();
+
+                if neighbours.len() != 2 {
+                    nodes.insert(point);
+                    graph.add_node(point);
                 }
-            };
 
-            if is_in_hallway {
-                continue;
-            }
+                if neighbours.contains_key(&Direction::Up)
+                    && neighbours.contains_key(&Direction::Down)
+                {
+                    continue;
+                }
 
-            if let Some(new_node) = current_node.turn_right() {
-                heap.push(new_node);
-            }
+                if neighbours.contains_key(&Direction::Left)
+                    && neighbours.contains_key(&Direction::Right)
+                {
+                    continue;
+                }
 
-            if let Some(new_node) = current_node.turn_left() {
-                heap.push(new_node);
-            }
-
-
-            if heap.len() > 2_000_000 {
-                println!("Heap is huge, let's make it smaller!");
-                heap = heap.drain().take(1_000_000).collect();
+                nodes.insert(point);
+                graph.add_node(point);
             }
         }
 
-        // I shouldn't be here, there's a problem!
-        0
+        // println!("{nodes:?}");
+
+        for node in nodes.iter().cloned() {
+            // Keep going straight in any direction, and stop when you hit an edge
+            for direction in DIRECTIONS.into_iter() {
+                let mut point = node.unbound_neighbour(direction);
+
+                while !nodes.contains(&point) && !self.walls.contains(&point) {
+                    point = point.unbound_neighbour(direction);
+                }
+
+                if self.walls.contains(&point) {
+                    continue;
+                }
+
+                let diff_row = (point.row - node.row).abs();
+                let diff_col = (node.column - point.column).abs();
+
+                let cost = cmp::max(diff_row, diff_col) as usize;
+
+                graph.add_edge(node, point, direction, cost);
+                graph.add_edge(point, node, direction.reverse(), cost);
+            }
+        }
+
+        graph
     }
 }
 
@@ -237,7 +343,11 @@ pub fn run(file_path: String, part: i32) -> usize {
 
 fn part_1(file_path: String) -> usize {
     let map = parse_data(file_path);
-    map.find_path()
+    println!("Made map");
+    let graph = map.into_graph();
+    println!("Made graph");
+
+    graph.find_path()
 }
 
 fn part_2(_file_path: String) -> usize {
