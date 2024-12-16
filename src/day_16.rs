@@ -9,7 +9,7 @@ struct Node {
     point: Point,
     direction: Direction,
     score: usize,
-    history: HashSet<(Point, Direction)>,
+    history: Vec<(Point, Direction)>,
 }
 
 impl Node {
@@ -17,10 +17,10 @@ impl Node {
         point: Point,
         direction: Direction,
         score: usize,
-        old_history: HashSet<(Point, Direction)>,
+        old_history: Vec<(Point, Direction)>,
     ) -> Self {
         let mut history = old_history.clone();
-        history.insert((point, direction));
+        history.push((point, direction));
 
         Self {
             point,
@@ -30,36 +30,22 @@ impl Node {
         }
     }
 
-    fn turn_right(&self) -> Option<Self> {
-        if self
-            .history
-            .contains(&(self.point, self.direction.turn_right()))
-        {
-            return None;
-        }
-
-        Some(Self::new(
+    fn turn_right(&self) -> Self {
+        Self::new(
             self.point,
             self.direction.turn_right(),
             self.score + 1000,
             self.history.clone(),
-        ))
+        )
     }
 
-    fn turn_left(&self) -> Option<Self> {
-        if self
-            .history
-            .contains(&(self.point, self.direction.turn_left()))
-        {
-            return None;
-        }
-
-        Some(Self::new(
+    fn turn_left(&self) -> Self {
+        Self::new(
             self.point,
             self.direction.turn_left(),
             self.score + 1000,
             self.history.clone(),
-        ))
+        )
     }
 }
 
@@ -123,7 +109,36 @@ impl Graph {
         self.edges.insert(key, (to, cost));
     }
 
-    fn find_path(&self) -> usize {
+
+    fn get_full_path(&self, node: Node) -> Vec<Point> {
+        let mut full_path = vec![];
+
+        let history = node.history.clone();
+        let mut current_point = self.start;
+
+        for (target, direction) in history {
+            if target == current_point {
+                continue;
+            }
+
+            while current_point != target {
+                full_path.push(current_point);
+                current_point = current_point.unbound_neighbour(direction);
+            }
+
+            current_point = target;
+        }
+
+        let mut temp = full_path.into_iter().unique().collect_vec();
+        temp.push(self.start);
+        temp.push(self.end);
+
+        temp
+    }
+
+    fn find_paths(&self, known_best_cost: Option<usize>) -> Vec<Node> {
+        let mut all_solutions = vec![];
+
         let mut heap = BinaryHeap::new();
         // let mut vec_deque = VecDeque::new();
 
@@ -133,41 +148,44 @@ impl Graph {
             .map(|&node| (node, usize::MAX))
             .collect::<HashMap<(Point, Direction), usize>>();
 
-        let mut best_found = usize::MAX;
+        let mut best_found = known_best_cost.unwrap_or(usize::MAX);
 
-        heap.push(Node::new(self.start, Direction::Right, 0, HashSet::new()));
+        heap.push(Node::new(self.start, Direction::Right, 0, vec![]));
         // vec_deque.push_front(Node::new(self.start, Direction::Right, 0, HashSet::new()));
 
         while let Some(current_node) = heap.pop() {
         // while let Some(current_node) = vec_deque.pop_front() {
         //     let heap_size = vec_deque.len();
             let heap_size = heap.len();
-            if heap_size % 100000 == 0 {
-                println!(
-                    "Size of heap is {heap_size}. Current score is {} and best score {best_found}.",
-                    current_node.score
-                );
-            }
 
             if current_node.point == self.end {
                 // println!("Score {}", current_node.score);
                 // println!("History {:?}", current_node.history);
-                best_found = cmp::min(current_node.score, best_found);
-                println!("Found best score of {best_found}!");
-                continue;
-                // return current_node.score;
+
+
+                if let Some(known_best_cost) = known_best_cost {
+                    if current_node.score == known_best_cost {
+                        all_solutions.push(current_node);
+                        continue;
+                    }
+                } else {
+                    best_found = cmp::min(current_node.score, best_found);
+                    // println!("Found best score of {best_found}!");
+                    all_solutions.push(current_node);
+                    continue;
+                }
             }
 
             if current_node.score > best_found {
-                println!("Size of heap is {heap_size}. Cutting branch due to best solution found...");
+                // println!("Size of heap is {heap_size}. Cutting branch due to best solution found...");
                 continue;
             }
 
             let key = (current_node.point, current_node.direction);
             let best_cost = best_nodes.get(&key).unwrap();
 
-            if *best_cost <= current_node.score {
-                println!("Size of heap is {heap_size}. Cutting branch at {key:?} due to same or better way to get here with {} vs. {best_cost}...", current_node.score);
+            if *best_cost < current_node.score {
+                // println!("Size of heap is {heap_size}. Cutting branch at {key:?} due to same or better way to get here with {} vs. {best_cost}...", current_node.score);
                 continue;
             }
 
@@ -201,15 +219,8 @@ impl Graph {
                 // vec_deque.push_back(new_node);
             }
 
-            if let Some(right_node) = current_node.turn_right() {
-                heap.push(right_node);
-                // vec_deque.push_back(right_node);
-            }
-
-            if let Some(left_node) = current_node.turn_left() {
-                heap.push(left_node);
-                // vec_deque.push_back(left_node);
-            }
+            heap.push(current_node.turn_right());
+            heap.push(current_node.turn_left());
 
             // if let Some(left_node) = current_node.turn_left() {
             //     // heap.push(left_node);
@@ -227,7 +238,7 @@ impl Graph {
             // }
         }
 
-        best_found
+        all_solutions
     }
 }
 
@@ -347,11 +358,20 @@ fn part_1(file_path: String) -> usize {
     let graph = map.into_graph();
     println!("Made graph");
 
-    graph.find_path()
+    graph.find_paths(None).into_iter().map(|node| node.score).min().unwrap()
 }
 
-fn part_2(_file_path: String) -> usize {
-    0
+fn part_2(file_path: String) -> usize {
+    let map = parse_data(file_path);
+    println!("Made map");
+    let graph = map.into_graph();
+    println!("Made graph");
+
+    let paths = graph.find_paths(None);
+    let best_cost = paths.iter().map(|node| node.score).min().unwrap();
+
+    let best_paths =  graph.find_paths(Some(best_cost));
+    best_paths.into_iter().flat_map(|path| graph.get_full_path(path)).unique().count()
 }
 
 #[cfg(test)]
@@ -362,14 +382,14 @@ mod tests {
 
     #[rstest]
     #[case(true, 11048)]
-    #[case(false, 0)]
+    #[case(false, 99488)]
     fn test_part_1(#[case] is_test: bool, #[case] expected: usize) {
         assert_eq!(expected, part_1(get_file_path(is_test, 16, None)));
     }
 
     #[rstest]
-    #[case(true, 0)]
-    #[case(false, 0)]
+    #[case(true, 64)]
+    #[case(false, 516)]
     fn test_part_2(#[case] is_test: bool, #[case] expected: usize) {
         assert_eq!(expected, part_2(get_file_path(is_test, 16, None)));
     }
