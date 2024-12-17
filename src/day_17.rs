@@ -9,6 +9,7 @@ pub fn run(file_path: String, part: i32) -> String {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Operator {
     Adv,
     Bxl,
@@ -31,7 +32,7 @@ impl Operator {
             5 => Operator::Out,
             6 => Operator::Bdv,
             7 => Operator::Cdv,
-            _ => panic!("Op code {op_code} shouldn't be possible!")
+            _ => panic!("Op code {op_code} shouldn't be possible!"),
         }
     }
 }
@@ -73,44 +74,49 @@ impl Computer {
     }
 
     fn run_instruction(&mut self) {
+        // println!("Running instructions at {}", self.instruction_pointer);
+
         let operator = Operator::from_op_code(self.program[self.instruction_pointer]);
-        let operand = self.get_operand(self.program[self.instruction_pointer + 1]);
+        let literal_operand = self.program[self.instruction_pointer + 1];
+        let combo_operand = self.get_operand(literal_operand);
+
+        // println!("Operator {operator:?}, literal operand {literal_operand}, combo operand {combo_operand}");
 
         match operator {
             Operator::Adv => {
-                let result = self.divide(operand);
+                let result = self.divide(combo_operand);
                 self.register_a = result;
-            },
+            }
             Operator::Bxl => {
-                let result = self.register_b ^ operand;
+                let result = self.register_b ^ literal_operand;
                 self.register_b = result;
-            },
+            }
             Operator::Bst => {
-                let result = operand % 8;
+                let result = combo_operand % 8;
                 self.register_b = result;
-            },
+            }
             Operator::Jnz => {
                 if self.register_a != 0 {
-                    self.instruction_pointer = operand as usize;
+                    self.instruction_pointer = literal_operand as usize;
                     return;
                 }
-            },
+            }
             Operator::Bxc => {
                 let result = self.register_b ^ self.register_c;
                 self.register_b = result;
-            },
+            }
             Operator::Out => {
-                let result = operand % 8;
+                let result = combo_operand % 8;
                 self.outputs.push(result);
-            },
+            }
             Operator::Bdv => {
-                let result = self.divide(operand);
+                let result = self.divide(combo_operand);
                 self.register_b = result;
-            },
+            }
             Operator::Cdv => {
-                let result = self.divide(operand);
+                let result = self.divide(combo_operand);
                 self.register_c = result;
-            },
+            }
         }
 
         self.instruction_pointer += 2;
@@ -118,10 +124,7 @@ impl Computer {
 
     fn divide(&self, operand: u64) -> u64 {
         let numerator = self.register_a;
-        let denominator = 2_u64.pow(operand as u32);
-        let result = numerator / denominator;
-
-        result
+        numerator >> operand
     }
 
     fn run_to_end(&mut self) -> Vec<u64> {
@@ -133,8 +136,9 @@ impl Computer {
     }
 }
 
-const TEST_CASE: (u64, u64, u64, &[u64]) = (729, 0, 0, &[0,1,5,4,3,0]);
-const REAL_CASE: (u64, u64, u64, &[u64]) = (66171486, 0, 0, &[2,4,1,6,7,5,4,6,1,4,5,5,0,3,3,0]);
+const TEST_CASE: (u64, &[u64]) = (729, &[0, 1, 5, 4, 3, 0]);
+const SECOND_TEST_CASE: (u64, &[u64]) = (2024, &[0, 3, 5, 4, 3, 0]);
+const REAL_CASE: (u64, &[u64]) = (66171486, &[2, 4, 1, 6, 7, 5, 4, 6, 1, 4, 5, 5, 0, 3, 3, 0]);
 
 fn part_1(file_path: String) -> String {
     let case_data = if file_path.contains("test") {
@@ -143,21 +147,26 @@ fn part_1(file_path: String) -> String {
         REAL_CASE
     };
 
-    let mut computer = Computer::new(case_data.0, case_data.1, case_data.2, case_data.3.to_vec());
+    let mut computer = Computer::new(case_data.0, 0, 0, case_data.1.to_vec());
 
     let output = computer.run_to_end();
 
-    output.into_iter().map(|n| n.to_string()).collect_vec().into_iter().join(",")
+    output
+        .into_iter()
+        .map(|n| n.to_string())
+        .collect_vec()
+        .into_iter()
+        .join(",")
 }
 
 fn part_2(file_path: String) -> String {
     let case_data = if file_path.contains("test") {
-        TEST_CASE
+        SECOND_TEST_CASE
     } else {
         REAL_CASE
     };
 
-    let mut _computer = Computer::new(case_data.0, case_data.1, case_data.2, case_data.3.to_vec());
+    let mut _computer = Computer::new(case_data.0, 0, 0, case_data.1.to_vec());
 
     "Not yet!".to_string()
 }
@@ -168,26 +177,17 @@ mod tests {
     use crate::file_utilities::get_file_path;
     use rstest::rstest;
 
-    // #[rstest]
-    // #[case(vec![125, 17], 6, 22)]
-    // fn test_blink_many_times(
-    //     #[case] stones: Vec<u128>,
-    //     #[case] times: usize,
-    //     #[case] expected: usize,
-    // ) {
-    //     assert_eq!(expected, blink_many_times(stones, times));
-    // }
-
     #[rstest]
-    #[case(true, 55312)]
-    #[case(false, 183435)]
-    fn test_part_1(#[case] is_test: bool, #[case] expected: u64) {
-        assert_eq!(expected, part_1(get_file_path(is_test, 11, None)));
+    #[case(true, "4,6,3,5,6,3,5,2,1,0")]
+    #[case(false, "2,3,6,2,1,6,1,2,1")]
+    fn test_part_1(#[case] is_test: bool, #[case] expected: String) {
+        assert_eq!(expected, part_1(get_file_path(is_test, 17, None)));
     }
 
     #[rstest]
-    #[case(false, 218279375708592)]
-    fn test_part_2(#[case] is_test: bool, #[case] expected: u64) {
-        assert_eq!(expected, part_2(get_file_path(is_test, 11, None)));
+    #[case(false, "Not yet!")]
+    #[case(false, "Not yet!")]
+    fn test_part_2(#[case] is_test: bool, #[case] expected: String) {
+        assert_eq!(expected, part_2(get_file_path(is_test, 17, None)));
     }
 }
