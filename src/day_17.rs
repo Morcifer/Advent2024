@@ -44,7 +44,7 @@ struct Computer {
 
     program: Vec<u64>,
     instruction_pointer: usize,
-    outputs: Vec<u64>,
+    pub outputs: Vec<u64>,
 }
 
 impl Computer {
@@ -134,6 +134,24 @@ impl Computer {
 
         self.outputs.clone()
     }
+
+    fn run_unless_different(&mut self) -> bool {
+        while self.instruction_pointer < self.program.len() {
+            self.run_instruction();
+
+            if self.outputs.is_empty() {
+                continue;
+            }
+
+            let output_index = self.outputs.len() - 1;
+
+            if self.outputs[output_index] != self.program[output_index] {
+                return false;
+            }
+        }
+
+        self.program.len() == self.outputs.len()
+    }
 }
 
 const TEST_CASE: (u64, &[u64]) = (729, &[0, 1, 5, 4, 3, 0]);
@@ -166,9 +184,23 @@ fn part_2(file_path: String) -> String {
         REAL_CASE
     };
 
-    let mut _computer = Computer::new(case_data.0, 0, 0, case_data.1.to_vec());
+    for a in 0..u64::MAX {
+        let mut computer = Computer::new(a, 0, 0, case_data.1.to_vec());
+        let result = computer.run_unless_different();
 
-    "Not yet!".to_string()
+        println!(
+            "{}: For input {a}, compare program {:?} to output {:?}",
+            result,
+            case_data.1.to_vec(),
+            computer.outputs
+        );
+
+        if result {
+            return a.to_string();
+        }
+    }
+
+    "Failure is apparently an option!".to_string()
 }
 
 #[cfg(test)]
@@ -185,7 +217,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case(false, "Not yet!")]
+    #[case(false, "117440c")]
     #[case(false, "Not yet!")]
     fn test_part_2(#[case] is_test: bool, #[case] expected: String) {
         assert_eq!(expected, part_2(get_file_path(is_test, 17, None)));
