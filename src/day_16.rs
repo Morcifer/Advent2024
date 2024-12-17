@@ -5,6 +5,8 @@ use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
 use itertools::Itertools;
 
+// TODO: The graph conversion is unnecessary and extra ugly, rewrite it in a good way!
+
 struct Node {
     point: Point,
     direction: Direction,
