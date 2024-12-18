@@ -22,13 +22,13 @@ impl Map {
         }
     }
 
-    fn find_shortest_path(&self) -> Vec<Point> {
+    fn find_shortest_path(&self) -> usize {
         let mut queue = VecDeque::new();
-        queue.push_back((self.start, vec![self.start]));
+        queue.push_back((self.start, 0));
 
         let mut visited = HashSet::new();
 
-        while let Some((current_point, current_path)) = queue.pop_front() {
+        while let Some((current_point, current_length)) = queue.pop_front() {
             if visited.contains(&current_point) {
                 // Already been here, no need.
                 continue;
@@ -38,7 +38,7 @@ impl Map {
 
             if current_point == self.end {
                 // We made it, huzzah!
-                return current_path;
+                return current_length;
             }
 
             if self.walls.contains(&current_point) {
@@ -48,15 +48,12 @@ impl Map {
 
             for direction in DIRECTIONS.into_iter() {
                 if let Some(neighbour) = current_point.neighbour(direction, self.size + 1) {
-                    let mut new_path = current_path.clone();
-                    new_path.push(neighbour);
-
-                    queue.push_back((neighbour, new_path));
+                    queue.push_back((neighbour, current_length + 1));
                 }
             }
         }
 
-        vec![]
+        0
     }
 }
 
@@ -95,7 +92,7 @@ fn part_1(file_path: String) -> (usize, usize) {
 
     let map = Map::new(map_size, bytes.into_iter().take(bytes_to_take).collect());
 
-    (map.find_shortest_path().len() - 1, 0)
+    (map.find_shortest_path(), 0)
 }
 
 fn part_2(file_path: String) -> (usize, usize) {
@@ -106,7 +103,7 @@ fn part_2(file_path: String) -> (usize, usize) {
     let bytes = parse_data(file_path);
 
     for bytes_to_take in bytes_to_start_from..bytes.len() {
-        println!("Trying out {bytes_to_take} bytes out of {}.", bytes.len());
+        // println!("Trying out {bytes_to_take} bytes out of {}.", bytes.len());
 
         let map = Map::new(
             map_size,
@@ -115,7 +112,7 @@ fn part_2(file_path: String) -> (usize, usize) {
 
         let shortest_path = map.find_shortest_path();
 
-        if shortest_path.is_empty() {
+        if shortest_path == 0 {
             let blocking_byte = bytes[bytes_to_take - 1];
             return (blocking_byte.column(), blocking_byte.row());
         }
