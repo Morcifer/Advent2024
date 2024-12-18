@@ -1,15 +1,15 @@
 mod file_utilities;
 
-mod day_17;
+mod day_18;
 mod map_utilities;
 
 use std::time::Instant;
 
-use crate::day_17::run;
+use crate::day_18::run;
 use crate::file_utilities::get_file_path;
 
 fn main() {
-    let day = 17;
+    let day = 18;
     let is_test = false;
 
     for part in [1, 2] {
@@ -19,6 +19,6 @@ fn main() {
 
         let duration = end - start;
 
-        println!("Day {day} Part {part}: {result}, in {duration:?}.");
+        println!("Day {day} Part {part}: {result:?}, in {duration:?}.");
     }
 }
