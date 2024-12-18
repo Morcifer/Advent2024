@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-// TODO: Part 2 is ugly, rewrite it in a good way!
+// TODO: real input from file!
 
 #[allow(dead_code)]
 pub fn run(file_path: String, part: i32) -> String {

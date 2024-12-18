@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+// TODO: real input from file!
+
 #[allow(dead_code)]
 pub fn run(file_path: String, part: i32) -> u64 {
     match part {
