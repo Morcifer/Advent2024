@@ -1,34 +1,21 @@
-use std::collections::{VecDeque};
+use std::collections::VecDeque;
 
 use crate::file_utilities::read_two_chunks;
-
-fn parse_rule_line(line: String) -> (usize, usize) {
-    let values = line
-        .split("|")
-        .map(str::trim)
-        .map(|x| x.parse::<usize>().unwrap())
-        .collect::<Vec<usize>>();
-
-    (values[0], values[1])
-}
-
-fn parse_pages_line(line: String) -> Vec<usize> {
-    line.split(",")
-        .map(str::trim)
-        .map(|x| x.parse::<usize>().unwrap())
-        .collect::<Vec<usize>>()
-}
 
 fn parse_data(file_path: String) -> (Vec<String>, Vec<String>) {
     let (patterns_line, designs) = read_two_chunks(file_path);
 
-    let patterns = patterns_line[0].split(",").map(str::trim).map(|s| s.to_string()).collect();
+    let patterns = patterns_line[0]
+        .split(",")
+        .map(str::trim)
+        .map(|s| s.to_string())
+        .collect();
 
     (patterns, designs)
 }
 
 #[allow(dead_code)]
-pub fn run(file_path: String, part: i32) -> i32 {
+pub fn run(file_path: String, part: i32) -> usize {
     match part {
         1 => part_1(file_path),
         2 => part_2(file_path),
@@ -36,19 +23,25 @@ pub fn run(file_path: String, part: i32) -> i32 {
     }
 }
 
-fn design_can_be_created(design: String, patterns: &Vec<String>) -> bool {
+fn design_can_be_created(design: String, patterns: &Vec<String>, stop_on_first: bool) -> usize {
+    let mut result = 0;
+
     println!("Design: {design}");
     let mut queue = VecDeque::new();
     queue.push_front(0);
 
     while let Some(index) = queue.pop_front() {
         if index == design.len() {
-             return true;
+            result += 1;
+
+            if stop_on_first {
+                return result;
+            }
         }
 
         for pattern in patterns {
             // println!("Checking pattern {pattern} at index {index}");
-            let end_of_check = index+pattern.len();
+            let end_of_check = index + pattern.len();
 
             if end_of_check > design.len() {
                 // println!("Design is too long!");
@@ -63,27 +56,25 @@ fn design_can_be_created(design: String, patterns: &Vec<String>) -> bool {
         }
     }
 
-    false
-}
-
-
-fn part_1(file_path: String) -> i32 {
-    let (patterns, designs) = parse_data(file_path);
-
-    let mut result = 0;
-
-    for design in designs {
-        if design_can_be_created(design, &patterns) {
-            result += 1;
-        }
-    }
-
     result
 }
 
-fn part_2(file_path: String) -> i32 {
+fn part_1(file_path: String) -> usize {
     let (patterns, designs) = parse_data(file_path);
-    0
+
+    designs
+        .into_iter()
+        .filter(|design| design_can_be_created(design.clone(), &patterns, true) > 0)
+        .count()
+}
+
+fn part_2(file_path: String) -> usize {
+    let (patterns, designs) = parse_data(file_path);
+
+    designs
+        .into_iter()
+        .map(|design| design_can_be_created(design, &patterns, false))
+        .sum()
 }
 
 #[cfg(test)]
@@ -93,21 +84,16 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case(true, 143)]
-    #[case(false, 5588)]
-    fn test_part_1(#[case] is_test: bool, #[case] expected: i32) {
-        assert_eq!(expected, part_1(get_file_path(is_test, 5, None)));
-        assert_eq!(expected, alternative(get_file_path(is_test, 5, None), true));
+    #[case(true, 6)]
+    #[case(false, 340)]
+    fn test_part_1(#[case] is_test: bool, #[case] expected: usize) {
+        assert_eq!(expected, part_1(get_file_path(is_test, 19, None)));
     }
 
     #[rstest]
-    #[case(true, 123)]
-    #[case(false, 5331)]
-    fn test_part_2(#[case] is_test: bool, #[case] expected: i32) {
-        assert_eq!(expected, part_2(get_file_path(is_test, 5, None)));
-        assert_eq!(
-            expected,
-            alternative(get_file_path(is_test, 5, None), false)
-        );
+    #[case(true, 16)]
+    #[case(false, 0)]
+    fn test_part_2(#[case] is_test: bool, #[case] expected: usize) {
+        assert_eq!(expected, part_2(get_file_path(is_test, 19, None)));
     }
 }
