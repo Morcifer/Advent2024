@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 use crate::file_utilities::read_two_chunks;
 
@@ -23,7 +23,8 @@ pub fn run(file_path: String, part: i32) -> usize {
     }
 }
 
-fn design_can_be_created(design: String, patterns: &Vec<String>, stop_on_first: bool) -> usize {
+#[allow(dead_code)]
+fn create_design(design: &String, patterns: &Vec<String>, stop_on_first: bool) -> usize {
     let mut result = 0;
 
     println!("Design: {design}");
@@ -59,12 +60,39 @@ fn design_can_be_created(design: String, patterns: &Vec<String>, stop_on_first: 
     result
 }
 
+fn create_design_recursive(design: &String, patterns: &Vec<String>, index: usize) -> usize {
+    if index == design.len() {
+        return 1;
+    }
+
+    let mut result = 0;
+
+    for pattern in patterns {
+        // println!("Checking pattern {pattern} at index {index}");
+        let end_of_check = index + pattern.len();
+
+        if end_of_check > design.len() {
+            // println!("Design is too long!");
+            // Too long, wouldn't work.
+            continue;
+        }
+
+        if design[index..end_of_check] == *pattern {
+            // println!("Design could work, moving to index {end_of_check}!");
+            result += create_design_recursive(design, patterns, end_of_check);
+        }
+    }
+
+    result
+}
+
 fn part_1(file_path: String) -> usize {
     let (patterns, designs) = parse_data(file_path);
 
     designs
         .into_iter()
-        .filter(|design| design_can_be_created(design.clone(), &patterns, true) > 0)
+        // .filter(|design| design_can_be_created(design, &patterns, true) > 0)
+        .filter(|design| create_design_recursive(design, &patterns, 0) > 0)
         .count()
 }
 
@@ -73,7 +101,8 @@ fn part_2(file_path: String) -> usize {
 
     designs
         .into_iter()
-        .map(|design| design_can_be_created(design, &patterns, false))
+        // .map(|design| design_can_be_created(design, &patterns, false))
+        .map(|design| create_design_recursive(&design, &patterns, 0))
         .sum()
 }
 
