@@ -94,31 +94,27 @@ impl Map {
         }
     }
 
-    fn find_paths(&self, known_best_cost: Option<usize>) -> Vec<Node> {
-        let mut all_solutions = vec![];
-
+    fn find_paths(&self) -> Vec<Node> {
         let mut heap = BinaryHeap::new();
 
-        let mut best_nodes: HashMap<(Point, Direction), usize> = HashMap::new();
+        let mut best_solutions = vec![];
+        let mut best_score = usize::MAX;
 
-        let mut best_found = known_best_cost.unwrap_or(usize::MAX);
+        let mut best_score_per_point: HashMap<(Point, Direction), usize> = HashMap::new();
 
         heap.push(Node::new(self.start, Direction::Right, 0, vec![]));
-        // vec_deque.push_front(Node::new(self.start, Direction::Right, 0, HashSet::new()));
 
         while let Some(current_node) = heap.pop() {
             if current_node.point == self.end {
-                // println!("Score {}", current_node.score);
-                // println!("History {:?}", current_node.history);
-
-                if let Some(known_best_cost) = known_best_cost {
-                    if current_node.score == known_best_cost {
-                        all_solutions.push(current_node);
+                match current_node.score.cmp(&best_score) {
+                    cmp::Ordering::Greater => continue,
+                    cmp::Ordering::Equal => {
+                        best_solutions.push(current_node);
                     }
-                } else {
-                    best_found = cmp::min(current_node.score, best_found);
-                    // println!("Found best score of {best_found}!");
-                    all_solutions.push(current_node);
+                    cmp::Ordering::Less => {
+                        best_score = current_node.score;
+                        best_solutions = vec![current_node];
+                    }
                 }
 
                 continue;
@@ -128,21 +124,21 @@ impl Map {
                 continue;
             }
 
-            if current_node.score > best_found {
-                // println!("Size of heap is {heap_size}. Cutting branch due to best solution found...");
+            if current_node.score > best_score {
                 continue;
             }
 
             let key = (current_node.point, current_node.direction);
 
-            if let Some(best_known_cost) = best_nodes.get(&key) {
+            if let Some(best_known_cost) = best_score_per_point.get(&key) {
+                // If we already encountered this node and the cost is better,
+                // we shouldn't keep investigating it.
                 if *best_known_cost < current_node.score {
-                    // println!("Size of heap is {heap_size}. Cutting branch at {key:?} due to same or better way to get here with {} vs. {best_cost}...", current_node.score);
                     continue;
                 }
             }
 
-            best_nodes.insert(key, current_node.score);
+            best_score_per_point.insert(key, current_node.score);
 
             heap.push(current_node.move_forward());
 
@@ -176,7 +172,7 @@ impl Map {
             }
         }
 
-        all_solutions
+        best_solutions
     }
 }
 
@@ -212,20 +208,12 @@ pub fn run(file_path: String, part: i32) -> usize {
 
 fn part_1(file_path: String) -> usize {
     let map = parse_data(file_path);
-    map.find_paths(None)
-        .into_iter()
-        .map(|node| node.score)
-        .min()
-        .unwrap()
+    map.find_paths().first().unwrap().score
 }
 
 fn part_2(file_path: String) -> usize {
     let map = parse_data(file_path);
-    let paths = map.find_paths(None);
-    let best_cost = paths.iter().map(|node| node.score).min().unwrap();
-
-    let best_paths = map.find_paths(Some(best_cost));
-    best_paths
+    map.find_paths()
         .into_iter()
         .flat_map(|node| node.history)
         .map(|(point, _)| point)
