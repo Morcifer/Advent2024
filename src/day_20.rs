@@ -1,12 +1,6 @@
 use crate::file_utilities::read_lines;
 use crate::map_utilities::{Point, DIRECTIONS};
 
-use itertools::Itertools;
-use std::collections::{HashMap, VecDeque};
-
-// TODO: Consider replacing HashMap with a vector that can be enumerated over.
-// TODO: Consider iterating over the path twice instead of over the path * 41 * 41.
-
 fn parse_line_to_chars(line: String) -> Vec<char> {
     line.chars().collect::<Vec<char>>()
 }
@@ -27,78 +21,62 @@ pub fn run(file_path: String, part: i32) -> u64 {
     }
 }
 
-fn get_distance_per_point(map: &[Vec<char>]) -> HashMap<Point, usize> {
+fn fine_path(map: &[Vec<char>]) -> Vec<Point> {
     let mut start = Point::new(0, 0);
-    let mut end = Point::new(0, 0);
 
     for (i, row) in map.iter().enumerate() {
         for (j, char) in row.iter().enumerate() {
             if *char == 'S' {
                 start = Point::new(i as isize, j as isize);
-            } else if *char == 'E' {
-                end = Point::new(i as isize, j as isize);
-            } else {
-                continue;
+                break;
             }
         }
     }
 
-    let mut distance_per_point = HashMap::new();
+    let mut prev = Point::new(0, 0);
+    let mut current = start;
 
-    let mut queue = VecDeque::new();
-    queue.push_back((start, 0));
+    let mut path = vec![start];
 
-    while let Some((point, distance_from_start)) = queue.pop_front() {
-        if map[point.row()][point.column()] == '#' {
-            continue;
-        }
-
-        if point == end {
-            distance_per_point.insert(point, distance_from_start);
-            continue;
-        }
-
-        if distance_per_point.contains_key(&point) {
-            // We've been here before, no need to keep searching.
-            continue;
-        }
-
-        distance_per_point.insert(point, distance_from_start);
-
+    while map[current.row()][current.column()] != 'E' {
         for direction in DIRECTIONS.into_iter() {
-            let neighbour = point.unbound_neighbour(direction);
-            queue.push_back((neighbour, distance_from_start + 1));
+            let neighbour = current.unbound_neighbour(direction);
+
+            if map[neighbour.row()][neighbour.column()] == '#' {
+                continue;
+            }
+
+            if neighbour == prev {
+                // Don't look back (in anger)
+                continue;
+            }
+
+            path.push(neighbour);
+
+            prev = current;
+            current = neighbour;
         }
     }
 
-    distance_per_point
+    path
 }
 
-fn get_all_tunnels(
-    distance_per_point: &HashMap<Point, usize>,
-    time_limit: isize,
-) -> Vec<(Point, Point, usize)> {
-    let path = distance_per_point.keys().copied().collect_vec();
-
+fn get_all_tunnels(path: &[Point], time_limit: isize) -> Vec<(Point, Point, usize)> {
     let mut result = vec![];
 
-    for point_in_path in &path {
-        let cost_at_point = distance_per_point.get(point_in_path).unwrap();
-
-        for new_point in &path {
+    for (cost_at_point, point_in_path) in path.iter().enumerate() {
+        for (cost_at_new_point, new_point) in path.iter().enumerate() {
             let delta_row = (point_in_path.row - new_point.row).abs();
             let delta_column = (point_in_path.column - new_point.column).abs();
 
             let distance_travelled = delta_row + delta_column;
 
             if distance_travelled > time_limit {
-                // We can only get within 20 steps. Maybe 21? Who knows, we'll find out.
+                // We can only get within 20 steps.
                 continue;
             }
 
-            let cost_at_new_point = distance_per_point.get(new_point).unwrap();
-
-            if *cost_at_new_point > *cost_at_point + distance_travelled as usize {
+            if cost_at_new_point > cost_at_point + distance_travelled as usize {
                 // println!("Jumping from {point_in_path:?} to {new_point:?} gives {cost_at_point} -> {cost_at_new_point}");
                 result.push((
                     *point_in_path,
@@ -118,8 +96,8 @@ fn part_1(file_path: String) -> u64 {
 
     let map = parse_data(file_path);
 
-    let distance_per_point = get_distance_per_point(&map);
-    let all_tunnels = get_all_tunnels(&distance_per_point, 2);
+    let path = fine_path(&map);
+    let all_tunnels = get_all_tunnels(&path, 2);
 
     all_tunnels
         .into_iter()
@@ -133,8 +111,8 @@ fn part_2(file_path: String) -> u64 {
 
     let map = parse_data(file_path);
 
-    let distance_per_point = get_distance_per_point(&map);
-    let all_tunnels = get_all_tunnels(&distance_per_point, 20);
+    let path = fine_path(&map);
+    let all_tunnels = get_all_tunnels(&path, 20);
 
     all_tunnels
         .into_iter()
