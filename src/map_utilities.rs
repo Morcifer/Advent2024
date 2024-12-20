@@ -93,9 +93,6 @@ impl Point {
     pub fn is_in_bounds(&self, map_size: usize) -> bool {
         let map_size = map_size as isize;
 
-        self.row >= 0
-            && self.row < map_size
-            && self.column >= 0
-            && self.column < map_size
+        self.row >= 0 && self.row < map_size && self.column >= 0 && self.column < map_size
     }
 }

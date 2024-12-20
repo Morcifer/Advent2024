@@ -24,7 +24,7 @@ pub fn run(file_path: String, part: i32) -> u64 {
     }
 }
 
-fn get_distance_per_point(map: &Vec<Vec<char>>) -> HashMap<Point, usize> {
+fn get_distance_per_point(map: &[Vec<char>]) -> HashMap<Point, usize> {
     let mut start = Point::new(0, 0);
     let mut end = Point::new(0, 0);
 
@@ -72,7 +72,7 @@ fn get_distance_per_point(map: &Vec<Vec<char>>) -> HashMap<Point, usize> {
 }
 
 fn get_all_tunnels(
-    map: &Vec<Vec<char>>,
+    map: &[Vec<char>],
     distance_per_point: &HashMap<Point, usize>,
     time_limit: isize,
 ) -> Vec<(Point, Point, usize)> {
@@ -81,11 +81,8 @@ fn get_all_tunnels(
 
     let mut result = vec![];
 
-    let time_limit = time_limit + 1;
-
-    for point_in_path in path
-    {
-        let cost_at_point = distance_per_point.get(&point_in_path).unwrap();
+    for point_in_path in path {
+        let cost_at_point = distance_per_point.get(point_in_path).unwrap();
 
         for delta_row in -time_limit..=time_limit {
             for delta_col in -time_limit..=time_limit {
@@ -96,7 +93,10 @@ fn get_all_tunnels(
                     continue;
                 }
 
-                let new_point = Point::new(point_in_path.row + delta_row, point_in_path.column + delta_col);
+                let new_point = Point::new(
+                    point_in_path.row + delta_row,
+                    point_in_path.column + delta_col,
+                );
 
                 if !new_point.is_in_bounds(map_size) {
                     continue;
@@ -111,7 +111,11 @@ fn get_all_tunnels(
 
                 if *cost_at_new_point > *cost_at_point + distance_travelled as usize {
                     // println!("Jumping from {point_in_path:?} to {new_point:?} gives {cost_at_point} -> {cost_at_new_point}");
-                    result.push((*point_in_path, new_point, cost_at_new_point - cost_at_point - distance_travelled as usize));
+                    result.push((
+                        *point_in_path,
+                        new_point,
+                        cost_at_new_point - cost_at_point - distance_travelled as usize,
+                    ));
                 }
             }
         }
@@ -121,40 +125,33 @@ fn get_all_tunnels(
 }
 
 fn part_1(file_path: String) -> u64 {
+    let is_test = file_path.contains("test");
+    let limit = if is_test { 0 } else { 100 };
+
     let map = parse_data(file_path);
 
     let distance_per_point = get_distance_per_point(&map);
-    let all_tunnels = get_all_tunnels(&map, &distance_per_point, 1);
-
-    println!("Tunnels found:");
-
-    for tunnel in all_tunnels.iter() {
-        println!("{:?} -> {:?} cuts {:?}", tunnel.0, tunnel.1, tunnel.2);
-    }
+    let all_tunnels = get_all_tunnels(&map, &distance_per_point, 2);
 
     all_tunnels
         .into_iter()
-        .filter(|(_p1, _p2, cut)| *cut >= 0)
-        // .filter(|(_p1, _p2, cut)| *cut >= 100)
+        .filter(|(_p1, _p2, cut)| *cut >= limit)
         .count() as u64
 }
 
 fn part_2(file_path: String) -> u64 {
+    let is_test = file_path.contains("test");
+    let limit = if is_test { 50 } else { 100 };
+
     let map = parse_data(file_path);
 
     let distance_per_point = get_distance_per_point(&map);
     let all_tunnels = get_all_tunnels(&map, &distance_per_point, 20);
 
-    println!("Tunnels found:");
-
-    for tunnel in all_tunnels.iter() {
-        println!("{:?} -> {:?} cuts {:?}", tunnel.0, tunnel.1, tunnel.2);
-    }
-
     all_tunnels
         .into_iter()
-        .filter(|(_p1, _p2, cut)| *cut >= 50)
-        .count() as u64  // 1140211 too high.
+        .filter(|(_p1, _p2, cut)| *cut >= limit)
+        .count() as u64
 }
 
 #[cfg(test)]
@@ -164,15 +161,15 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case(true, 0)]
+    #[case(true, 44)]
     #[case(false, 1445)]
     fn test_part_1(#[case] is_test: bool, #[case] expected: u64) {
         assert_eq!(expected, part_1(get_file_path(is_test, 20, None)));
     }
 
     #[rstest]
-    #[case(true, 0)]
-    #[case(false, 0)]
+    #[case(true, 285)]
+    #[case(false, 1008040)]
     fn test_part_2(#[case] is_test: bool, #[case] expected: u64) {
         assert_eq!(expected, part_2(get_file_path(is_test, 20, None)));
     }
