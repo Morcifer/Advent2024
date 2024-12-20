@@ -75,51 +75,36 @@ fn get_distance_per_point(map: &[Vec<char>]) -> HashMap<Point, usize> {
 }
 
 fn get_all_tunnels(
-    map: &[Vec<char>],
     distance_per_point: &HashMap<Point, usize>,
     time_limit: isize,
 ) -> Vec<(Point, Point, usize)> {
-    let map_size = map.len();
-    let path = distance_per_point.keys().collect_vec();
+    let path = distance_per_point.keys().copied().collect_vec();
 
     let mut result = vec![];
 
-    for point_in_path in path {
+    for point_in_path in &path {
         let cost_at_point = distance_per_point.get(point_in_path).unwrap();
 
-        for delta_row in -time_limit..=time_limit {
-            for delta_col in -time_limit..=time_limit {
-                let distance_travelled = delta_row.abs() + delta_col.abs();
+        for new_point in &path {
+            let delta_row = (point_in_path.row - new_point.row).abs();
+            let delta_column = (point_in_path.column - new_point.column).abs();
 
-                if distance_travelled > time_limit {
-                    // We can only get within 20 steps. Maybe 21? Who knows, we'll find out.
-                    continue;
-                }
+            let distance_travelled = delta_row + delta_column;
 
-                let new_point = Point::new(
-                    point_in_path.row + delta_row,
-                    point_in_path.column + delta_col,
-                );
+            if distance_travelled > time_limit {
+                // We can only get within 20 steps. Maybe 21? Who knows, we'll find out.
+                continue;
+            }
 
-                if !new_point.is_in_bounds(map_size) {
-                    continue;
-                }
+            let cost_at_new_point = distance_per_point.get(new_point).unwrap();
 
-                if map[new_point.row()][new_point.column()] == '#' {
-                    continue;
-                }
-
-                // If this fails something must be wrong.
-                let cost_at_new_point = distance_per_point.get(&new_point).unwrap();
-
-                if *cost_at_new_point > *cost_at_point + distance_travelled as usize {
-                    // println!("Jumping from {point_in_path:?} to {new_point:?} gives {cost_at_point} -> {cost_at_new_point}");
-                    result.push((
-                        *point_in_path,
-                        new_point,
-                        cost_at_new_point - cost_at_point - distance_travelled as usize,
-                    ));
-                }
+            if *cost_at_new_point > *cost_at_point + distance_travelled as usize {
+                // println!("Jumping from {point_in_path:?} to {new_point:?} gives {cost_at_point} -> {cost_at_new_point}");
+                result.push((
+                    *point_in_path,
+                    *new_point,
+                    cost_at_new_point - cost_at_point - distance_travelled as usize,
+                ));
             }
         }
     }
@@ -134,7 +119,7 @@ fn part_1(file_path: String) -> u64 {
     let map = parse_data(file_path);
 
     let distance_per_point = get_distance_per_point(&map);
-    let all_tunnels = get_all_tunnels(&map, &distance_per_point, 2);
+    let all_tunnels = get_all_tunnels(&distance_per_point, 2);
 
     all_tunnels
         .into_iter()
@@ -149,7 +134,7 @@ fn part_2(file_path: String) -> u64 {
     let map = parse_data(file_path);
 
     let distance_per_point = get_distance_per_point(&map);
-    let all_tunnels = get_all_tunnels(&map, &distance_per_point, 20);
+    let all_tunnels = get_all_tunnels(&distance_per_point, 20);
 
     all_tunnels
         .into_iter()
