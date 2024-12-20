@@ -4,6 +4,9 @@ use crate::map_utilities::{Point, DIRECTIONS};
 use itertools::Itertools;
 use std::collections::{HashMap, VecDeque};
 
+// TODO: Consider replacing HashMap with a vector that can be enumerated over.
+// TODO: Consider iterating over the path twice instead of over the path * 41 * 41.
+
 fn parse_line_to_chars(line: String) -> Vec<char> {
     line.chars().collect::<Vec<char>>()
 }
