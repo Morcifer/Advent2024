@@ -105,4 +105,8 @@ impl Point {
 
         self.row >= 0 && self.row < map_size && self.column >= 0 && self.column < map_size
     }
+
+    pub fn manhattan_distance(&self, other: &Self) -> usize {
+        (self.row - other.row).unsigned_abs() + (self.column - other.column).unsigned_abs()
+    }
 }

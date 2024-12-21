@@ -5,10 +5,13 @@ use std::iter;
 
 use crate::map_utilities::{Direction, Point};
 
+// TODO: see if the code can be changed to get rid of get_pad_paths,
+//  and use the same recursive code for the number pad.
+
 // TODO: real input from file!
 
 #[allow(dead_code)]
-pub fn run(file_path: String, part: i32) -> u64 {
+pub fn run(file_path: String, part: i32) -> usize {
     match part {
         1 => part_1(file_path),
         2 => part_2(file_path),
@@ -80,29 +83,30 @@ fn get_pad_paths(pad: &[&[char]]) -> HashMap<(char, char), Vec<Vec<char>>> {
                 '<'
             };
 
-            let row_first =
+            let row_thing =
                 itertools::repeat_n(row_button, (start_point.row - end_point.row).unsigned_abs())
-                    .chain(itertools::repeat_n(
-                        column_button,
-                        (start_point.column - end_point.column).unsigned_abs(),
-                    ))
                     .collect_vec();
 
-            let col_first = itertools::repeat_n(
+            let column_thing = itertools::repeat_n(
                 column_button,
                 (start_point.column - end_point.column).unsigned_abs(),
             )
-            .chain(itertools::repeat_n(
-                row_button,
-                (start_point.row - end_point.row).unsigned_abs(),
-            ))
             .collect_vec();
+
+            let all_arrows = row_thing
+                .into_iter()
+                .chain(column_thing.into_iter())
+                .collect_vec();
+
+            let len = all_arrows.len();
 
             mapping.insert(
                 (*start, *end),
-                vec![row_first, col_first]
+                all_arrows
                     .into_iter()
+                    .permutations(len)
                     .unique()
+                    .map(|perm| perm.iter().copied().collect_vec())
                     .filter(|perm| is_valid(pad, start_point, perm))
                     .collect_vec(),
             );
@@ -116,30 +120,20 @@ fn get_pad_paths(pad: &[&[char]]) -> HashMap<(char, char), Vec<Vec<char>>> {
     mapping
 }
 
-fn get_sequence(
+fn get_numerical_sequences(
     pad_paths: &HashMap<(char, char), Vec<Vec<char>>>,
     sequence_chars: &[char],
-    cache: &mut HashMap<String, Vec<Vec<char>>>,
 ) -> Vec<Vec<char>> {
-    // println!("Getting paths for {:?}", sequence_chars.iter().join(""));
-    let key = sequence_chars.iter().join("");
-
-    if let Some(result) = cache.get(&key) {
-        println!("I hit the cache for {key}");
-        return result.clone();
-    }
+    // println!("Getting numerical sequences for {:?}", sequence_chars.iter().join(""));
 
     let mut paths: Vec<Vec<char>> = vec![vec![]];
 
-    for (button_from, button_to) in iter::once('A')
-        .chain(sequence_chars.iter().copied())
-        .tuple_windows()
-    {
+    for (button_from, button_to) in sequence_chars.iter().tuple_windows() {
         paths = paths
             .clone()
             .into_iter()
             .flat_map(|path| {
-                pad_paths[&(button_from, button_to)]
+                pad_paths[&(*button_from, *button_to)]
                     .clone()
                     .into_iter()
                     .map(|sub_path| {
@@ -154,80 +148,142 @@ fn get_sequence(
             .collect_vec();
     }
 
-    // println!("Got paths {:?}", paths.iter().map(|path| path.iter().join("")).collect_vec());
-    cache.insert(key, paths.clone());
-
     paths
 }
+//
+// fn get_robot_paths_with_directional_path_paths(
+//     directional_pad_paths: &HashMap<(char, char), Vec<Vec<char>>>,
+//     first_sequences: Vec<Vec<char>>,
+//     cache: &mut HashMap<String, Vec<Vec<char>>>,
+// ) -> Vec<Vec<char>> {
+//     let new_sequences = first_sequences
+//         .into_iter()
+//         .flat_map(|sequence| get_sequence(directional_pad_paths, &sequence))
+//         .collect_vec();
+//
+//     let shortest_second = new_sequences.iter().map(|s| s.len()).min().unwrap();
+//
+//     // let one_sequence = new_sequences
+//     //     .into_iter()
+//     //     .filter(|s| s.len() == shortest_second)
+//     //     .next()
+//     //     .unwrap();
+//     //
+//     // vec![one_sequence]
+//
+//     new_sequences
+//         .into_iter()
+//         .filter(|s| s.len() == shortest_second)
+//         .collect_vec()
+// }
 
-fn get_robot_paths_with_directional_path_paths(
-    directional_pad_paths: &HashMap<(char, char), Vec<Vec<char>>>,
-    first_sequences: Vec<Vec<char>>,
-    cache: &mut HashMap<String, Vec<Vec<char>>>,
-) -> Vec<Vec<char>> {
-    let new_sequences = first_sequences
-        .into_iter()
-        .flat_map(|sequence| get_sequence(directional_pad_paths, &sequence, cache))
+fn recursive_directional_run(
+    from: char,
+    to: char,
+    depth: usize,
+    cache: &mut HashMap<(char, char, usize), usize>,
+) -> usize {
+    // println!("Getting paths from {from} to {to} at depth {depth}");
+
+    if let Some(result) = cache.get(&(from, to, depth)) {
+        // println!("Found cache of {result}");
+        return *result;
+    }
+
+    let from_point = find_button(from, DIRECTIONAL_PAD);
+    let to_point = find_button(to, DIRECTIONAL_PAD);
+
+    if depth == 0 {
+        let result = from_point.manhattan_distance(&to_point) + 1; // Don't forget to actually press the button!
+                                                                   // println!("Result is manhattan distance of {result}");
+        return result;
+    }
+
+    let row_button = if to_point.row > from_point.row {
+        'v'
+    } else {
+        '^'
+    };
+    let column_button = if to_point.column > from_point.column {
+        '>'
+    } else {
+        '<'
+    };
+
+    let row_thing = itertools::repeat_n(row_button, (from_point.row - to_point.row).unsigned_abs())
         .collect_vec();
 
-    let shortest_second = new_sequences.iter().map(|s| s.len()).min().unwrap();
+    let column_thing = itertools::repeat_n(
+        column_button,
+        (from_point.column - to_point.column).unsigned_abs(),
+    )
+    .collect_vec();
 
-    // let one_sequence = new_sequences
-    //     .into_iter()
-    //     .filter(|s| s.len() == shortest_second)
-    //     .next()
-    //     .unwrap();
-    //
-    // vec![one_sequence]
+    let all_arrows = row_thing.into_iter().chain(column_thing).collect_vec();
 
-    new_sequences
+    let len = all_arrows.len();
+    // println!("Arrows are {all_arrows:?}");
+
+    let result = all_arrows
         .into_iter()
-        .filter(|s| s.len() == shortest_second)
-        .collect_vec()
+        .permutations(len)
+        .unique()
+        .map(|perm| perm.iter().copied().collect_vec())
+        .filter(|perm| is_valid(DIRECTIONAL_PAD, from_point, perm))
+        .map(|perm| {
+            let new_perm = iter::once('A')
+                .chain(perm)
+                .chain(iter::once('A'))
+                .collect_vec();
+            // println!("Investigating new permutation {}", new_perm.iter().join(""));
+            new_perm
+                .into_iter()
+                .tuple_windows()
+                .map(|(from, to)| recursive_directional_run(from, to, depth - 1, cache))
+                .sum()
+        })
+        .min()
+        .unwrap();
+
+    cache.insert((from, to, depth), result);
+    result
 }
 
-fn run_for_robots(sequences: &[&str], robots: usize) -> u64 {
-    // If you flip the sequence iterations with the robot iterations, you might have a better cache!
+fn run_for_robots(sequences: &[&str], robots: usize) -> usize {
     let numerical_pad_paths = get_pad_paths(NUMERICAL_PAD);
-    let directional_pad_paths = get_pad_paths(DIRECTIONAL_PAD);
 
     let mut result = 0;
 
-    let mut numerical_cache = HashMap::new();
     let mut directional_cache = HashMap::new();
 
     for sequence in sequences {
-        println!("Handling sequence {sequence:?}");
+        // println!("Handling sequence {sequence:?}");
 
-        let numeric_part = sequence[0..sequence.len() - 1].parse::<u64>().unwrap();
+        let numeric_part = sequence[0..sequence.len() - 1].parse::<usize>().unwrap();
 
-        let sequence_chars = sequence.chars().collect_vec();
+        let sequence_chars = iter::once('A').chain(sequence.chars()).collect_vec();
+        let relevant_char_sequences =
+            get_numerical_sequences(&numerical_pad_paths, &sequence_chars);
 
-        let mut relevant_sequences =
-            get_sequence(&numerical_pad_paths, &sequence_chars, &mut numerical_cache);
-
-        for robot in 1..=robots {
-            println!(
-                "Handling robot {robot} out of {robots}, have {} sequences to go through, of length {}",
-                relevant_sequences.len(),
-                relevant_sequences.first().unwrap().len(),
-            );
-
-            relevant_sequences = get_robot_paths_with_directional_path_paths(
-                &directional_pad_paths,
-                relevant_sequences,
-                &mut directional_cache,
-            );
-        }
-
-        let shortest_sequence = relevant_sequences
+        let shortest_sequence: usize = relevant_char_sequences
             .into_iter()
-            .map(|sequence| sequence.len())
+            .map(|seq| {
+                let full_seq = iter::once('A').chain(seq.into_iter()).collect_vec();
+                // println!("Investigating sequence {}", full_seq.iter().join(""));
+
+                full_seq
+                    .into_iter()
+                    .tuple_windows()
+                    .map(|(from, to)| {
+                        recursive_directional_run(from, to, robots - 1, &mut directional_cache)
+                    })
+                    .sum()
+            })
             .min()
-            .unwrap() as u64;
+            .unwrap();
 
         result += shortest_sequence * numeric_part;
-        // return result
+        println!("{sequence}: {shortest_sequence}, {numeric_part}");
     }
 
     result
@@ -236,7 +292,7 @@ fn run_for_robots(sequences: &[&str], robots: usize) -> u64 {
 const TEST_CASE: &[&str] = &["029A", "980A", "179A", "456A", "379A"];
 const REAL_CASE: &[&str] = &["463A", "340A", "129A", "083A", "341A"];
 
-fn part_1(file_path: String) -> u64 {
+fn part_1(file_path: String) -> usize {
     let sequences = if file_path.contains("test") {
         TEST_CASE
     } else {
@@ -246,14 +302,14 @@ fn part_1(file_path: String) -> u64 {
     run_for_robots(sequences, 2)
 }
 
-fn part_2(file_path: String) -> u64 {
+fn part_2(file_path: String) -> usize {
     let sequences = if file_path.contains("test") {
         TEST_CASE
     } else {
         REAL_CASE
     };
 
-    0 //run_for_robots(sequences, 25)
+    run_for_robots(sequences, 25)
 }
 
 #[cfg(test)]
@@ -265,14 +321,14 @@ mod tests {
     #[rstest]
     #[case(true, 126384)]
     #[case(false, 94426)]
-    fn test_part_1(#[case] is_test: bool, #[case] expected: u64) {
+    fn test_part_1(#[case] is_test: bool, #[case] expected: usize) {
         assert_eq!(expected, part_1(get_file_path(is_test, 21, None)));
     }
 
     #[rstest]
-    #[case(true, 0)]
-    #[case(false, 0)]
-    fn test_part_2(#[case] is_test: bool, #[case] expected: u64) {
+    #[case(true, 154115708116294)]
+    #[case(false, 118392478819140)]
+    fn test_part_2(#[case] is_test: bool, #[case] expected: usize) {
         assert_eq!(expected, part_2(get_file_path(is_test, 21, None)));
     }
 }
