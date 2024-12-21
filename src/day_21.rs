@@ -86,6 +86,46 @@ fn get_pad_paths(pad: &[&[char]]) -> HashMap<(char, char), Vec<Vec<char>>> {
     mapping
 }
 
+
+fn get_sequence(
+    numerical_pad_paths: &HashMap<(char, char), Vec<Vec<char>>>,
+    sequence_chars: &Vec<char>,
+) -> Vec<Vec<char>> {
+
+    let mut first_directional_paths = numerical_pad_paths[&('A', sequence_chars[0])]
+        .clone()
+        .into_iter()
+        .map(|path| path.into_iter().chain(iter::once('A')).collect_vec())
+        .collect_vec();
+
+    for (button_from, button_to) in sequence_chars.into_iter().tuple_windows() {
+        first_directional_paths = first_directional_paths
+            .clone()
+            .into_iter()
+            .flat_map(|path| {
+                numerical_pad_paths[&(*button_from, *button_to)]
+                    .clone()
+                    .into_iter()
+                    .map(|sub_path| {
+                        path.iter()
+                            .copied()
+                            .chain(sub_path.into_iter())
+                            .chain(iter::once('A'))
+                            .collect_vec()
+                    })
+                    .collect_vec()
+            })
+            .collect_vec();
+    }
+
+    // for first_directional_path in first_directional_paths.iter() {
+    //     println!("Option is {first_directional_path:?}");
+    // }
+
+    first_directional_paths
+}
+
+
 const TEST_CASE: &[&str] = &["029A", "980A", "179A", "456A", "379A"];
 const REAL_CASE: &[&str] = &["463A", "340A", "129A", "083A", "341A"];
 
@@ -104,38 +144,45 @@ fn part_1(file_path: String) -> u64 {
     let mut result = 0;
 
     for sequence in sequences {
-        let numeric_part = sequence[0..sequence.len() - 1].parse::<u64>().unwrap();
-        let sequence_chars = sequence.chars().collect_vec();
+        println!("Handling sequence {sequence:?}");
 
-        let mut first_directional_paths = numerical_pad_paths[&('A', sequence_chars[0])]
-            .clone()
+        let numeric_part = sequence[0..sequence.len() - 1].parse::<u64>().unwrap();
+
+        let sequence_chars = sequence.chars().collect_vec();
+        let first_sequences = get_sequence(&numerical_pad_paths, &sequence_chars);
+
+        println!(
+            "Shortest first sequence: {}, longest {}",
+            first_sequences.iter().map(|s| s.len()).min().unwrap(),
+            first_sequences.iter().map(|s| s.len()).max().unwrap(),
+        );
+
+        let mut second_sequences = first_sequences
             .into_iter()
-            .map(|path| path.into_iter().chain(iter::once('A')).collect_vec())
+            .flat_map(|sequence| get_sequence(&directional_pad_paths, &sequence))
             .collect_vec();
 
-        for (button_from, button_to) in sequence_chars.into_iter().tuple_windows() {
-            first_directional_paths = first_directional_paths
-                .clone()
-                .into_iter()
-                .flat_map(|path| {
-                    numerical_pad_paths[&(button_from, button_to)]
-                        .clone()
-                        .into_iter()
-                        .map(|sub_path| {
-                            path.iter()
-                                .copied()
-                                .chain(sub_path.into_iter())
-                                .chain(iter::once('A'))
-                                .collect_vec()
-                        })
-                        .collect_vec()
-                })
-                .collect_vec();
-        }
+        let shortest_second = second_sequences.iter().map(|s| s.len()).min().unwrap();
+        second_sequences = second_sequences.into_iter().filter(|s| s.len() == shortest_second).collect_vec();
 
-        for first_directional_path in first_directional_paths {
-            println!("Option for {sequence} is {first_directional_path:?}");
-        }
+        let mut third_sequences = second_sequences
+            .into_iter()
+            .flat_map(|sequence| get_sequence(&directional_pad_paths, &sequence))
+            .collect_vec();
+
+        let shortest_third = third_sequences.iter().map(|s| s.len()).min().unwrap();
+        third_sequences = third_sequences.into_iter().filter(|s| s.len() == shortest_third).collect_vec();
+
+        println!(
+            "Shortest third sequence: {}, longest {}",
+            third_sequences.iter().map(|s| s.len()).min().unwrap(),
+            third_sequences.iter().map(|s| s.len()).max().unwrap(),
+        );
+
+        let shortest_sequence = third_sequences.into_iter().map(|sequence| sequence.len()).min().unwrap() as u64;
+
+        println!("Adding {shortest_sequence} and {numeric_part}");
+        result += shortest_sequence * numeric_part;
     }
 
     result
@@ -152,7 +199,7 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case(true, 0)]
+    #[case(true, 126384)] //  123844
     #[case(false, 0)]
     fn test_part_1(#[case] is_test: bool, #[case] expected: u64) {
         assert_eq!(expected, part_1(get_file_path(is_test, 21, None)));
