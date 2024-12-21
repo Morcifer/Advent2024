@@ -53,9 +53,6 @@ fn is_valid(pad: &[&[char]], numerical_start: Point, perm: &Vec<char>) -> bool {
 }
 
 fn get_pad_paths(pad: &[&[char]]) -> HashMap<(char, char), Vec<Vec<char>>> {
-    // let numerical_pad = [['7', '8', '9'], ['4', '5', '6'], ['1', '2', '3'], ['X', '0', 'A']];
-    // let directional_pad = [['X', '^', 'A'], ['<', 'v', '>']];
-
     let mut mapping = HashMap::new();
 
     for start in pad.iter().copied().flatten() {
@@ -72,8 +69,6 @@ fn get_pad_paths(pad: &[&[char]]) -> HashMap<(char, char), Vec<Vec<char>>> {
 
             let end_point = find_button(*end, pad);
 
-            let mut all_arrows = vec![];
-
             let row_button = if end_point.row > start_point.row {
                 'v'
             } else {
@@ -85,25 +80,29 @@ fn get_pad_paths(pad: &[&[char]]) -> HashMap<(char, char), Vec<Vec<char>>> {
                 '<'
             };
 
-            for _ in 0..(start_point.row - end_point.row).abs() {
-                all_arrows.push(row_button);
-            }
+            let row_first =
+                itertools::repeat_n(row_button, (start_point.row - end_point.row).unsigned_abs())
+                    .chain(itertools::repeat_n(
+                        column_button,
+                        (start_point.column - end_point.column).unsigned_abs(),
+                    ))
+                    .collect_vec();
 
-            for _ in 0..(start_point.column - end_point.column).abs() {
-                all_arrows.push(column_button);
-            }
-
-            let len = all_arrows.len();
-
-            // TODO: Remember that you're not allowed to be over the 'X'...
+            let col_first = itertools::repeat_n(
+                column_button,
+                (start_point.column - end_point.column).unsigned_abs(),
+            )
+            .chain(itertools::repeat_n(
+                row_button,
+                (start_point.row - end_point.row).unsigned_abs(),
+            ))
+            .collect_vec();
 
             mapping.insert(
                 (*start, *end),
-                all_arrows
+                vec![row_first, col_first]
                     .into_iter()
-                    .permutations(len)
                     .unique()
-                    .map(|perm| perm.iter().copied().collect_vec())
                     .filter(|perm| is_valid(pad, start_point, perm))
                     .collect_vec(),
             );
@@ -121,6 +120,8 @@ fn get_sequence(
     pad_paths: &HashMap<(char, char), Vec<Vec<char>>>,
     sequence_chars: &[char],
 ) -> Vec<Vec<char>> {
+    // println!("Getting paths for {:?}", sequence_chars.iter().join(""));
+
     let mut paths = pad_paths[&('A', sequence_chars[0])]
         .clone()
         .into_iter()
@@ -147,6 +148,7 @@ fn get_sequence(
             .collect_vec();
     }
 
+    // println!("Got paths {:?}", paths.iter().map(|path| path.iter().join("")).collect_vec());
     paths
 }
 
@@ -160,6 +162,14 @@ fn get_robot_paths_with_directional_path_paths(
         .collect_vec();
 
     let shortest_second = new_sequences.iter().map(|s| s.len()).min().unwrap();
+
+    // let one_sequence = new_sequences
+    //     .into_iter()
+    //     .filter(|s| s.len() == shortest_second)
+    //     .next()
+    //     .unwrap();
+    //
+    // vec![one_sequence]
 
     new_sequences
         .into_iter()
@@ -182,7 +192,12 @@ fn run_for_robots(sequences: &[&str], robots: usize) -> u64 {
         let mut relevant_sequences = get_sequence(&numerical_pad_paths, &sequence_chars);
 
         for robot in 1..=robots {
-            println!("Handling robot {robot} out of {robots}");
+            println!(
+                "Handling robot {robot} out of {robots}, have {} sequences to go through, of length {}",
+                relevant_sequences.len(),
+                relevant_sequences.first().unwrap().len(),
+            );
+
             relevant_sequences = get_robot_paths_with_directional_path_paths(
                 &directional_pad_paths,
                 relevant_sequences,
@@ -196,6 +211,7 @@ fn run_for_robots(sequences: &[&str], robots: usize) -> u64 {
             .unwrap() as u64;
 
         result += shortest_sequence * numeric_part;
+        // return result
     }
 
     result
