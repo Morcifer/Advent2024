@@ -119,21 +119,27 @@ fn get_pad_paths(pad: &[&[char]]) -> HashMap<(char, char), Vec<Vec<char>>> {
 fn get_sequence(
     pad_paths: &HashMap<(char, char), Vec<Vec<char>>>,
     sequence_chars: &[char],
+    cache: &mut HashMap<String, Vec<Vec<char>>>,
 ) -> Vec<Vec<char>> {
     // println!("Getting paths for {:?}", sequence_chars.iter().join(""));
+    let key = sequence_chars.iter().join("");
 
-    let mut paths = pad_paths[&('A', sequence_chars[0])]
-        .clone()
-        .into_iter()
-        .map(|path| path.into_iter().chain(iter::once('A')).collect_vec())
-        .collect_vec();
+    if let Some(result) = cache.get(&key) {
+        println!("I hit the cache for {key}");
+        return result.clone();
+    }
 
-    for (button_from, button_to) in sequence_chars.iter().tuple_windows() {
+    let mut paths: Vec<Vec<char>> = vec![vec![]];
+
+    for (button_from, button_to) in iter::once('A')
+        .chain(sequence_chars.iter().copied())
+        .tuple_windows()
+    {
         paths = paths
             .clone()
             .into_iter()
             .flat_map(|path| {
-                pad_paths[&(*button_from, *button_to)]
+                pad_paths[&(button_from, button_to)]
                     .clone()
                     .into_iter()
                     .map(|sub_path| {
@@ -149,16 +155,19 @@ fn get_sequence(
     }
 
     // println!("Got paths {:?}", paths.iter().map(|path| path.iter().join("")).collect_vec());
+    cache.insert(key, paths.clone());
+
     paths
 }
 
 fn get_robot_paths_with_directional_path_paths(
     directional_pad_paths: &HashMap<(char, char), Vec<Vec<char>>>,
     first_sequences: Vec<Vec<char>>,
+    cache: &mut HashMap<String, Vec<Vec<char>>>,
 ) -> Vec<Vec<char>> {
     let new_sequences = first_sequences
         .into_iter()
-        .flat_map(|sequence| get_sequence(directional_pad_paths, &sequence))
+        .flat_map(|sequence| get_sequence(directional_pad_paths, &sequence, cache))
         .collect_vec();
 
     let shortest_second = new_sequences.iter().map(|s| s.len()).min().unwrap();
@@ -178,10 +187,14 @@ fn get_robot_paths_with_directional_path_paths(
 }
 
 fn run_for_robots(sequences: &[&str], robots: usize) -> u64 {
+    // If you flip the sequence iterations with the robot iterations, you might have a better cache!
     let numerical_pad_paths = get_pad_paths(NUMERICAL_PAD);
     let directional_pad_paths = get_pad_paths(DIRECTIONAL_PAD);
 
     let mut result = 0;
+
+    let mut numerical_cache = HashMap::new();
+    let mut directional_cache = HashMap::new();
 
     for sequence in sequences {
         println!("Handling sequence {sequence:?}");
@@ -189,7 +202,9 @@ fn run_for_robots(sequences: &[&str], robots: usize) -> u64 {
         let numeric_part = sequence[0..sequence.len() - 1].parse::<u64>().unwrap();
 
         let sequence_chars = sequence.chars().collect_vec();
-        let mut relevant_sequences = get_sequence(&numerical_pad_paths, &sequence_chars);
+
+        let mut relevant_sequences =
+            get_sequence(&numerical_pad_paths, &sequence_chars, &mut numerical_cache);
 
         for robot in 1..=robots {
             println!(
@@ -201,6 +216,7 @@ fn run_for_robots(sequences: &[&str], robots: usize) -> u64 {
             relevant_sequences = get_robot_paths_with_directional_path_paths(
                 &directional_pad_paths,
                 relevant_sequences,
+                &mut directional_cache,
             );
         }
 
@@ -237,7 +253,7 @@ fn part_2(file_path: String) -> u64 {
         REAL_CASE
     };
 
-    run_for_robots(sequences, 25)
+    0 //run_for_robots(sequences, 25)
 }
 
 #[cfg(test)]
