@@ -6,9 +6,6 @@ use std::iter;
 
 use crate::map_utilities::{Direction, Point};
 
-// TODO: see if the code can be changed to get rid of get_pad_paths,
-//  and use the same recursive code for the number pad.
-
 // TODO: real input from file!
 
 #[allow(dead_code)]
@@ -96,69 +93,8 @@ fn get_valid_arrow_permutations(
         .collect_vec()
 }
 
-fn get_pad_paths(pad: &[&[char]]) -> HashMap<(char, char), Vec<Vec<char>>> {
-    let mut mapping = HashMap::new();
-
-    for start in pad.iter().copied().flatten() {
-        if *start == 'X' {
-            continue;
-        }
-
-        let start_point = find_button(*start, pad);
-
-        for end in pad.iter().copied().flatten() {
-            if *end == 'X' {
-                continue;
-            }
-
-            let end_point = find_button(*end, pad);
-
-            mapping.insert(
-                (*start, *end),
-                get_valid_arrow_permutations(pad, start_point, end_point),
-            );
-
-            if mapping[&(*start, *end)].is_empty() {
-                panic!("I shouldn't have dead ends from {start} to {end}!");
-            }
-        }
-    }
-
-    mapping
-}
-
-fn get_numerical_sequences(
-    pad_paths: &HashMap<(char, char), Vec<Vec<char>>>,
-    sequence_chars: &[char],
-) -> Vec<Vec<char>> {
-    // println!("Getting numerical sequences for {:?}", sequence_chars.iter().join(""));
-
-    let mut paths: Vec<Vec<char>> = vec![vec![]];
-
-    for (button_from, button_to) in sequence_chars.iter().tuple_windows() {
-        paths = paths
-            .clone()
-            .into_iter()
-            .flat_map(|path| {
-                pad_paths[&(*button_from, *button_to)]
-                    .clone()
-                    .into_iter()
-                    .map(|sub_path| {
-                        path.iter()
-                            .copied()
-                            .chain(sub_path.into_iter())
-                            .chain(iter::once('A'))
-                            .collect_vec()
-                    })
-                    .collect_vec()
-            })
-            .collect_vec();
-    }
-
-    paths
-}
-
-fn recursive_directional_run(
+fn recursive_run(
+    pad: &[&[char]],
     from: char,
     to: char,
     depth: usize,
@@ -171,16 +107,15 @@ fn recursive_directional_run(
         return *result;
     }
 
-    let from_point = find_button(from, DIRECTIONAL_PAD);
-    let to_point = find_button(to, DIRECTIONAL_PAD);
+    let from_point = find_button(from, pad);
+    let to_point = find_button(to, pad);
 
     if depth == 0 {
-        let result = from_point.manhattan_distance(&to_point) + 1; // Don't forget to actually press the button!
-
-        return result;
+        // Don't forget to actually press the button!
+        return from_point.manhattan_distance(&to_point) + 1;
     }
 
-    let result = get_valid_arrow_permutations(DIRECTIONAL_PAD, from_point, to_point)
+    let result = get_valid_arrow_permutations(pad, from_point, to_point)
         .into_iter()
         .map(|perm| {
             let new_perm = iter::once('A')
@@ -188,10 +123,11 @@ fn recursive_directional_run(
                 .chain(iter::once('A'))
                 .collect_vec();
             // println!("Investigating new permutation {}", new_perm.iter().join(""));
+
             new_perm
                 .into_iter()
                 .tuple_windows()
-                .map(|(from, to)| recursive_directional_run(from, to, depth - 1, cache))
+                .map(|(from, to)| recursive_run(DIRECTIONAL_PAD, from, to, depth - 1, cache))
                 .sum()
         })
         .min()
@@ -202,11 +138,9 @@ fn recursive_directional_run(
 }
 
 fn run_for_robots(sequences: &[&str], robots: usize) -> usize {
-    let numerical_pad_paths = get_pad_paths(NUMERICAL_PAD);
-
     let mut result = 0;
 
-    let mut directional_cache = HashMap::new();
+    let mut cache = HashMap::new();
 
     for sequence in sequences {
         // println!("Handling sequence {sequence:?}");
@@ -214,28 +148,15 @@ fn run_for_robots(sequences: &[&str], robots: usize) -> usize {
         let numeric_part = sequence[0..sequence.len() - 1].parse::<usize>().unwrap();
 
         let sequence_chars = iter::once('A').chain(sequence.chars()).collect_vec();
-        let relevant_char_sequences =
-            get_numerical_sequences(&numerical_pad_paths, &sequence_chars);
 
-        let shortest_sequence: usize = relevant_char_sequences
+        let shortest_sequence: usize = sequence_chars
             .into_iter()
-            .map(|seq| {
-                let full_seq = iter::once('A').chain(seq.into_iter()).collect_vec();
-                // println!("Investigating sequence {}", full_seq.iter().join(""));
+            .tuple_windows()
+            .map(|(from, to)| recursive_run(NUMERICAL_PAD, from, to, robots, &mut cache))
+            .sum();
 
-                full_seq
-                    .into_iter()
-                    .tuple_windows()
-                    .map(|(from, to)| {
-                        recursive_directional_run(from, to, robots - 1, &mut directional_cache)
-                    })
-                    .sum()
-            })
-            .min()
-            .unwrap();
-
+        // println!("{sequence}: length {shortest_sequence}, numeric {numeric_part}");
         result += shortest_sequence * numeric_part;
-        println!("{sequence}: {shortest_sequence}, {numeric_part}");
     }
 
     result
