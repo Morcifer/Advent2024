@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use std::cmp::Ordering;
 
 use std::collections::HashMap;
 use std::iter;
@@ -55,6 +56,46 @@ fn is_valid(pad: &[&[char]], numerical_start: Point, perm: &Vec<char>) -> bool {
     true
 }
 
+fn get_buttons(start_point: Point, end_point: Point) -> (char, char) {
+    let row_button = match end_point.row.cmp(&start_point.row) {
+        Ordering::Greater => 'v',
+        _ => '^',
+    };
+
+    let column_button = match end_point.column.cmp(&start_point.column) {
+        Ordering::Greater => '>',
+        _ => '<',
+    };
+
+    (row_button, column_button)
+}
+
+fn get_valid_arrow_permutations(
+    pad: &[&[char]],
+    start_point: Point,
+    end_point: Point,
+) -> Vec<Vec<char>> {
+    let (row_button, column_button) = get_buttons(start_point, end_point);
+
+    let row_diff = (start_point.row - end_point.row).unsigned_abs();
+    let row_thing = itertools::repeat_n(row_button, row_diff).collect_vec();
+
+    let column_diff = (start_point.column - end_point.column).unsigned_abs();
+    let column_thing = itertools::repeat_n(column_button, column_diff).collect_vec();
+
+    let all_arrows = row_thing.into_iter().chain(column_thing).collect_vec();
+
+    let len = all_arrows.len();
+
+    all_arrows
+        .into_iter()
+        .permutations(len)
+        .unique()
+        .map(|perm| perm.iter().copied().collect_vec())
+        .filter(|perm| is_valid(pad, start_point, perm))
+        .collect_vec()
+}
+
 fn get_pad_paths(pad: &[&[char]]) -> HashMap<(char, char), Vec<Vec<char>>> {
     let mut mapping = HashMap::new();
 
@@ -72,43 +113,9 @@ fn get_pad_paths(pad: &[&[char]]) -> HashMap<(char, char), Vec<Vec<char>>> {
 
             let end_point = find_button(*end, pad);
 
-            let row_button = if end_point.row > start_point.row {
-                'v'
-            } else {
-                '^'
-            };
-            let column_button = if end_point.column > start_point.column {
-                '>'
-            } else {
-                '<'
-            };
-
-            let row_thing =
-                itertools::repeat_n(row_button, (start_point.row - end_point.row).unsigned_abs())
-                    .collect_vec();
-
-            let column_thing = itertools::repeat_n(
-                column_button,
-                (start_point.column - end_point.column).unsigned_abs(),
-            )
-            .collect_vec();
-
-            let all_arrows = row_thing
-                .into_iter()
-                .chain(column_thing.into_iter())
-                .collect_vec();
-
-            let len = all_arrows.len();
-
             mapping.insert(
                 (*start, *end),
-                all_arrows
-                    .into_iter()
-                    .permutations(len)
-                    .unique()
-                    .map(|perm| perm.iter().copied().collect_vec())
-                    .filter(|perm| is_valid(pad, start_point, perm))
-                    .collect_vec(),
+                get_valid_arrow_permutations(pad, start_point, end_point),
             );
 
             if mapping[&(*start, *end)].is_empty() {
@@ -150,32 +157,6 @@ fn get_numerical_sequences(
 
     paths
 }
-//
-// fn get_robot_paths_with_directional_path_paths(
-//     directional_pad_paths: &HashMap<(char, char), Vec<Vec<char>>>,
-//     first_sequences: Vec<Vec<char>>,
-//     cache: &mut HashMap<String, Vec<Vec<char>>>,
-// ) -> Vec<Vec<char>> {
-//     let new_sequences = first_sequences
-//         .into_iter()
-//         .flat_map(|sequence| get_sequence(directional_pad_paths, &sequence))
-//         .collect_vec();
-//
-//     let shortest_second = new_sequences.iter().map(|s| s.len()).min().unwrap();
-//
-//     // let one_sequence = new_sequences
-//     //     .into_iter()
-//     //     .filter(|s| s.len() == shortest_second)
-//     //     .next()
-//     //     .unwrap();
-//     //
-//     // vec![one_sequence]
-//
-//     new_sequences
-//         .into_iter()
-//         .filter(|s| s.len() == shortest_second)
-//         .collect_vec()
-// }
 
 fn recursive_directional_run(
     from: char,
@@ -195,41 +176,12 @@ fn recursive_directional_run(
 
     if depth == 0 {
         let result = from_point.manhattan_distance(&to_point) + 1; // Don't forget to actually press the button!
-                                                                   // println!("Result is manhattan distance of {result}");
+
         return result;
     }
 
-    let row_button = if to_point.row > from_point.row {
-        'v'
-    } else {
-        '^'
-    };
-    let column_button = if to_point.column > from_point.column {
-        '>'
-    } else {
-        '<'
-    };
-
-    let row_thing = itertools::repeat_n(row_button, (from_point.row - to_point.row).unsigned_abs())
-        .collect_vec();
-
-    let column_thing = itertools::repeat_n(
-        column_button,
-        (from_point.column - to_point.column).unsigned_abs(),
-    )
-    .collect_vec();
-
-    let all_arrows = row_thing.into_iter().chain(column_thing).collect_vec();
-
-    let len = all_arrows.len();
-    // println!("Arrows are {all_arrows:?}");
-
-    let result = all_arrows
+    let result = get_valid_arrow_permutations(DIRECTIONAL_PAD, from_point, to_point)
         .into_iter()
-        .permutations(len)
-        .unique()
-        .map(|perm| perm.iter().copied().collect_vec())
-        .filter(|perm| is_valid(DIRECTIONAL_PAD, from_point, perm))
         .map(|perm| {
             let new_perm = iter::once('A')
                 .chain(perm)
