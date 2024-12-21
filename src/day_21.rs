@@ -1,7 +1,9 @@
-use crate::map_utilities::{Direction, Point};
 use itertools::Itertools;
+
 use std::collections::HashMap;
 use std::iter;
+
+use crate::map_utilities::{Direction, Point};
 
 // TODO: real input from file!
 
@@ -56,14 +58,14 @@ fn get_pad_paths(pad: &[&[char]]) -> HashMap<(char, char), Vec<Vec<char>>> {
 
     let mut mapping = HashMap::new();
 
-    for start in pad.to_vec().into_iter().flatten() {
+    for start in pad.iter().copied().flatten() {
         if *start == 'X' {
             continue;
         }
 
         let start_point = find_button(*start, pad);
 
-        for end in pad.to_vec().into_iter().flatten() {
+        for end in pad.iter().copied().flatten() {
             if *end == 'X' {
                 continue;
             }
@@ -106,7 +108,7 @@ fn get_pad_paths(pad: &[&[char]]) -> HashMap<(char, char), Vec<Vec<char>>> {
                     .collect_vec(),
             );
 
-            if mapping[&(*start, *end)].len() == 0 {
+            if mapping[&(*start, *end)].is_empty() {
                 panic!("I shouldn't have dead ends from {start} to {end}!");
             }
         }
@@ -115,19 +117,17 @@ fn get_pad_paths(pad: &[&[char]]) -> HashMap<(char, char), Vec<Vec<char>>> {
     mapping
 }
 
-
 fn get_sequence(
     pad_paths: &HashMap<(char, char), Vec<Vec<char>>>,
-    sequence_chars: &Vec<char>,
+    sequence_chars: &[char],
 ) -> Vec<Vec<char>> {
-
     let mut paths = pad_paths[&('A', sequence_chars[0])]
         .clone()
         .into_iter()
         .map(|path| path.into_iter().chain(iter::once('A')).collect_vec())
         .collect_vec();
 
-    for (button_from, button_to) in sequence_chars.into_iter().tuple_windows() {
+    for (button_from, button_to) in sequence_chars.iter().tuple_windows() {
         paths = paths
             .clone()
             .into_iter()
@@ -150,17 +150,24 @@ fn get_sequence(
     paths
 }
 
+fn get_robot_paths_with_directional_path_paths(
+    directional_pad_paths: &HashMap<(char, char), Vec<Vec<char>>>,
+    first_sequences: Vec<Vec<char>>,
+) -> Vec<Vec<char>> {
+    let new_sequences = first_sequences
+        .into_iter()
+        .flat_map(|sequence| get_sequence(directional_pad_paths, &sequence))
+        .collect_vec();
 
-const TEST_CASE: &[&str] = &["029A", "980A", "179A", "456A", "379A"];
-const REAL_CASE: &[&str] = &["463A", "340A", "129A", "083A", "341A"];
+    let shortest_second = new_sequences.iter().map(|s| s.len()).min().unwrap();
 
-fn part_1(file_path: String) -> u64 {
-    let sequences = if file_path.contains("test") {
-        TEST_CASE
-    } else {
-        REAL_CASE
-    };
+    new_sequences
+        .into_iter()
+        .filter(|s| s.len() == shortest_second)
+        .collect_vec()
+}
 
+fn run_for_robots(sequences: &[&str], robots: usize) -> u64 {
     let numerical_pad_paths = get_pad_paths(NUMERICAL_PAD);
     let directional_pad_paths = get_pad_paths(DIRECTIONAL_PAD);
 
@@ -172,25 +179,21 @@ fn part_1(file_path: String) -> u64 {
         let numeric_part = sequence[0..sequence.len() - 1].parse::<u64>().unwrap();
 
         let sequence_chars = sequence.chars().collect_vec();
-        let first_sequences = get_sequence(&numerical_pad_paths, &sequence_chars);
+        let mut relevant_sequences = get_sequence(&numerical_pad_paths, &sequence_chars);
 
-        let mut second_sequences = first_sequences
+        for robot in 1..=robots {
+            println!("Handling robot {robot} out of {robots}");
+            relevant_sequences = get_robot_paths_with_directional_path_paths(
+                &directional_pad_paths,
+                relevant_sequences,
+            );
+        }
+
+        let shortest_sequence = relevant_sequences
             .into_iter()
-            .flat_map(|sequence| get_sequence(&directional_pad_paths, &sequence))
-            .collect_vec();
-
-        let shortest_second = second_sequences.iter().map(|s| s.len()).min().unwrap();
-        second_sequences = second_sequences.into_iter().filter(|s| s.len() == shortest_second).collect_vec();
-
-        let mut third_sequences = second_sequences
-            .into_iter()
-            .flat_map(|sequence| get_sequence(&directional_pad_paths, &sequence))
-            .collect_vec();
-
-        let shortest_third = third_sequences.iter().map(|s| s.len()).min().unwrap();
-        third_sequences = third_sequences.into_iter().filter(|s| s.len() == shortest_third).collect_vec();
-
-        let shortest_sequence = third_sequences.into_iter().map(|sequence| sequence.len()).min().unwrap() as u64;
+            .map(|sequence| sequence.len())
+            .min()
+            .unwrap() as u64;
 
         result += shortest_sequence * numeric_part;
     }
@@ -198,8 +201,27 @@ fn part_1(file_path: String) -> u64 {
     result
 }
 
+const TEST_CASE: &[&str] = &["029A", "980A", "179A", "456A", "379A"];
+const REAL_CASE: &[&str] = &["463A", "340A", "129A", "083A", "341A"];
+
+fn part_1(file_path: String) -> u64 {
+    let sequences = if file_path.contains("test") {
+        TEST_CASE
+    } else {
+        REAL_CASE
+    };
+
+    run_for_robots(sequences, 2)
+}
+
 fn part_2(file_path: String) -> u64 {
-    0
+    let sequences = if file_path.contains("test") {
+        TEST_CASE
+    } else {
+        REAL_CASE
+    };
+
+    run_for_robots(sequences, 25)
 }
 
 #[cfg(test)]
