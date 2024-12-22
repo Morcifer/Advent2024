@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use std::collections::{hash_map, HashMap};
+use std::collections::HashMap;
 
 use crate::file_utilities::read_lines;
 
@@ -87,7 +87,7 @@ fn part_2(file_path: String) -> u64 {
         let diffs = prices
             .iter()
             .tuple_windows()
-            .map(|(first, second)| *second as i64 - *first as i64)
+            .map(|(first, second)| *second as i8 - *first as i8)
             .collect_vec();
 
         for (index, price) in prices.into_iter().enumerate().skip(4) {
@@ -98,19 +98,14 @@ fn part_2(file_path: String) -> u64 {
                 diffs[index - 1],
             );
             // println!("At index {index} I have price {price} with tuple {tuple:?}");
-
-            if let hash_map::Entry::Vacant(entry) = monkey_hashset.entry(tuple) {
-                entry.insert(price);
-            }
+            monkey_hashset.entry(tuple).or_insert(price);
         }
 
         for (key, value) in monkey_hashset.into_iter() {
-            if let hash_map::Entry::Vacant(entry) = cache.entry(key) {
-                entry.insert(value);
-            } else {
-                let old_value = cache.get_mut(&key).unwrap();
-                *old_value += value;
-            }
+            cache
+                .entry(key)
+                .and_modify(|old_value| *old_value += value)
+                .or_insert(value);
         }
     }
 
