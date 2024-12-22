@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use std::collections::{hash_map, HashMap};
 
 use crate::file_utilities::read_lines;
 
@@ -67,9 +68,53 @@ fn part_1(file_path: String) -> u64 {
 }
 
 fn part_2(file_path: String) -> u64 {
-    let _data = parse_data(file_path);
+    let data = parse_data(file_path);
 
-    0
+    let mut cache = HashMap::new();
+
+    for secret in data.into_iter() {
+        let mut monkey_hashset = HashMap::new();
+
+        let mut history = vec![secret];
+
+        for _ in 0..2000 {
+            let last = *history.last().unwrap();
+            history.push(evolve(last));
+        }
+
+        let prices = history.iter().map(|number| number % 10).collect_vec();
+
+        let diffs = prices
+            .iter()
+            .tuple_windows()
+            .map(|(first, second)| *second as i64 - *first as i64)
+            .collect_vec();
+
+        for (index, price) in prices.into_iter().enumerate().skip(4) {
+            let tuple = (
+                diffs[index - 4],
+                diffs[index - 3],
+                diffs[index - 2],
+                diffs[index - 1],
+            );
+            // println!("At index {index} I have price {price} with tuple {tuple:?}");
+
+            if let hash_map::Entry::Vacant(entry) = monkey_hashset.entry(tuple) {
+                entry.insert(price);
+            }
+        }
+
+        for (key, value) in monkey_hashset.into_iter() {
+            if let hash_map::Entry::Vacant(entry) = cache.entry(key) {
+                entry.insert(value);
+            } else {
+                let old_value = cache.get_mut(&key).unwrap();
+                *old_value += value;
+            }
+        }
+    }
+
+    *cache.values().max().unwrap()
 }
 
 #[cfg(test)]
@@ -79,15 +124,15 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case(true, 37327623)]
+    #[case(true, 37990510)]
     #[case(false, 20071921341)]
     fn test_part_1(#[case] is_test: bool, #[case] expected: u64) {
         assert_eq!(expected, part_1(get_file_path(is_test, 22, None)));
     }
 
     #[rstest]
-    #[case(true, 0)]
-    #[case(false, 0)]
+    #[case(true, 23)]
+    #[case(false, 2242)]
     fn test_part_2(#[case] is_test: bool, #[case] expected: u64) {
         assert_eq!(expected, part_2(get_file_path(is_test, 22, None)));
     }
