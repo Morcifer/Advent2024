@@ -114,7 +114,7 @@ fn bron_kerbosch(
     let all_vertices_in_p: Vec<String> = p.iter().cloned().collect_vec();
 
     for v in all_vertices_in_p.iter() {
-        let v_set = vec![v.clone()].into_iter().collect::<HashSet<String>>();
+        let v_set: HashSet<String> = vec![v.clone()].into_iter().collect();
         let neighbours = edges[v].clone();
 
         let mut new_r: HashSet<String> = r.union(&v_set).cloned().collect(); // Don't format!
@@ -132,7 +132,7 @@ fn part_2(file_path: String) -> String {
     let (nodes, edges) = parse_data(file_path);
 
     // Solve the clique problem!
-    let mut p = nodes.iter().cloned().collect::<HashSet<String>>();
+    let mut p: HashSet<String> = nodes.iter().cloned().collect();
 
     let mut r = HashSet::new();
     let mut x = HashSet::new();
@@ -141,6 +141,7 @@ fn part_2(file_path: String) -> String {
 
     bron_kerbosch(&mut r, &mut p, &mut x, &edges, &mut result);
 
+    // TODO: Is there a proper way to have max_by_key but for an iterator but without sorting?
     let max_length = result.iter().map(|r| r.len()).max().unwrap();
 
     for clique in result {
