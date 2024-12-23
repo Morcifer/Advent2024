@@ -1,16 +1,16 @@
 mod file_utilities;
 
-mod day_22;
+mod day_23;
 mod map_utilities;
 
 use std::time::Instant;
 
-use crate::day_22::run;
+use crate::day_23::run;
 use crate::file_utilities::get_file_path;
 
 fn main() {
-    let day = 22;
-    let is_test = false;
+    let day = 23;
+    let is_test = true;
 
     for part in [1, 2] {
         let start = Instant::now();
