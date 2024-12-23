@@ -114,16 +114,12 @@ fn bron_kerbosch(
     let all_vertices_in_p: Vec<String> = p.iter().cloned().collect_vec();
 
     for v in all_vertices_in_p.iter() {
+        let v_set = vec![v.clone()].into_iter().collect::<HashSet<String>>();
         let neighbours = edges[v].clone();
 
-        let mut new_r = r.clone();
-        new_r.insert(v.clone());
-
-        let mut new_p = p.clone();
-        new_p = new_p.intersection(&neighbours).cloned().collect();
-
-        let mut new_x = x.clone();
-        new_x = new_x.intersection(&neighbours).cloned().collect();
+        let mut new_r: HashSet<String> = r.union(&v_set).cloned().collect(); // Don't format!
+        let mut new_p: HashSet<String> = p.intersection(&neighbours).cloned().collect(); //
+        let mut new_x: HashSet<String> = x.intersection(&neighbours).cloned().collect(); //
 
         bron_kerbosch(&mut new_r, &mut new_p, &mut new_x, edges, maximal_clique);
 
