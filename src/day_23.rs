@@ -5,29 +5,18 @@ use itertools::Itertools;
 use crate::file_utilities::read_lines;
 
 fn parse_edge_line(line: String) -> (String, String) {
-    let values = line.split("-").map(str::trim).collect_vec();
-
-    (values[0].to_string(), values[1].to_string())
+    line.split("-")
+        .map(str::trim)
+        .map(|s| s.to_string())
+        .collect_tuple()
+        .unwrap()
 }
 
-fn parse_data(file_path: String) -> Vec<(String, String)> {
-    read_lines(file_path)
+fn parse_data(file_path: String) -> (Vec<String>, HashMap<String, HashSet<String>>) {
+    let input_edges = read_lines(file_path)
         .into_iter()
         .map(parse_edge_line)
-        .collect_vec()
-}
-
-#[allow(dead_code)]
-pub fn run(file_path: String, part: i32) -> String {
-    match part {
-        1 => part_1(file_path),
-        2 => part_2(file_path),
-        _ => panic!("... nope."),
-    }
-}
-
-fn part_1(file_path: String) -> String {
-    let input_edges = parse_data(file_path);
+        .collect_vec();
 
     let nodes = input_edges
         .iter()
@@ -51,7 +40,20 @@ fn part_1(file_path: String) -> String {
             .insert(node_1.clone());
     }
 
-    // println!("{hash_map:?}");
+    (nodes, edges)
+}
+
+#[allow(dead_code)]
+pub fn run(file_path: String, part: i32) -> String {
+    match part {
+        1 => part_1(file_path),
+        2 => part_2(file_path),
+        _ => panic!("... nope."),
+    }
+}
+
+fn part_1(file_path: String) -> String {
+    let (nodes, edges) = parse_data(file_path);
 
     let mut result: HashSet<(String, String, String)> = HashSet::new();
 
@@ -105,7 +107,6 @@ fn bron_kerbosch(
     maximal_clique: &mut Vec<HashSet<String>>,
 ) {
     if p.is_empty() && x.is_empty() {
-        // println!("Found maximal clique {r:?}");
         maximal_clique.push(r.clone());
         return;
     }
@@ -132,31 +133,9 @@ fn bron_kerbosch(
 }
 
 fn part_2(file_path: String) -> String {
-    let input_edges = parse_data(file_path);
+    let (nodes, edges) = parse_data(file_path);
 
-    let nodes = input_edges
-        .iter()
-        .flat_map(|(source, target)| vec![source.clone(), target.clone()])
-        .unique()
-        .collect_vec();
-
-    let mut edges = nodes
-        .iter()
-        .map(|node| (node.clone(), HashSet::new()))
-        .collect::<HashMap<String, HashSet<String>>>();
-
-    for (node_1, node_2) in input_edges.iter() {
-        edges
-            .get_mut(&node_1.clone())
-            .unwrap()
-            .insert(node_2.clone());
-        edges
-            .get_mut(&node_2.clone())
-            .unwrap()
-            .insert(node_1.clone());
-    }
-
-    // Now solve the clique problem!
+    // Solve the clique problem!
     let mut p = nodes.iter().cloned().collect::<HashSet<String>>();
 
     let mut r = HashSet::new();
