@@ -10,7 +10,7 @@ use crate::file_utilities::get_file_path;
 
 fn main() {
     let day = 23;
-    let is_test = true;
+    let is_test = false;
 
     for part in [1, 2] {
         let start = Instant::now();
