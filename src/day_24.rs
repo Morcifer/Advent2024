@@ -51,7 +51,7 @@ fn parse_gate_line(line: String) -> (String, (String, Gate, String)) {
     (output, (input_1, gate, input_2))
 }
 
-fn parse_data(file_path: String) -> (Vec<(String, usize)>, Vec<(String, (String, Gate, String))>) {
+fn parse_data(file_path: String) -> (HashMap<String, usize>, HashMap<String, (String, Gate, String)>) {
     let (input_lines, gate_lines) = read_two_chunks(file_path);
 
     let inputs = input_lines
@@ -64,7 +64,7 @@ fn parse_data(file_path: String) -> (Vec<(String, usize)>, Vec<(String, (String,
         .map(parse_gate_line)
         .collect::<Vec<_>>();
 
-    (inputs, gates)
+    (inputs.into_iter().collect(), gates.into_iter().collect())
 }
 
 #[allow(dead_code)]
@@ -77,14 +77,7 @@ pub fn run(file_path: String, part: i32) -> usize {
 }
 
 fn part_1(file_path: String) -> usize {
-    let (inputs, gates) = parse_data(file_path);
-
-    let mut known_registers: HashMap<String, usize> = inputs.into_iter().collect();
-
-    let connected_gates: HashMap<String, (String, Gate, String)> = gates.into_iter().collect();
-
-    // println!("inputs {known_registers:?}");
-    // println!("gates {connected_gates:?}");
+    let (mut known_registers, connected_gates) = parse_data(file_path);
 
     let all_registers: HashSet<String> = connected_gates
         .iter()
@@ -96,7 +89,7 @@ fn part_1(file_path: String) -> usize {
     while known_registers.len() != all_registers.len() {
         let known_register_map: HashSet<String> = known_registers.keys().cloned().collect();
         let unknown_registers = all_registers.difference(&known_register_map).collect_vec();
-        println!("I have {} unknown registers left", unknown_registers.len());
+        // println!("I have {} unknown registers left", unknown_registers.len());
 
         for unknown_register in unknown_registers {
             let (from, gate, to) = connected_gates.get(unknown_register).unwrap();
@@ -116,8 +109,6 @@ fn part_1(file_path: String) -> usize {
         .rev()
         .collect_vec();
 
-    println!("{output_keys:?}");
-
     let output = output_keys
         .into_iter()
         .map(|key| *known_registers.get(key).unwrap())
@@ -125,15 +116,66 @@ fn part_1(file_path: String) -> usize {
         .collect_vec()
         .join("");
 
-    println!("{output:?}");
+    // println!("{output:?}");
     usize::from_str_radix(output.as_str(), 2).unwrap()
 }
 
+fn get_standard_adder(x_inputs: Vec<&String>, y_inputs: Vec<&String>) -> Vec<(String, (String, Gate, String))> {
+    let total_input_bits = x_inputs.len();
+
+    let mut adder = vec![
+        ("z00".to_string(), ("y00".to_string(), Gate::Xor, "x00".to_string())),
+        ("c00".to_string(), ("x00".to_string(), Gate::And, "y00".to_string())),
+    ];
+
+    for (index, (x_input, y_input)) in x_inputs.into_iter().zip(y_inputs.into_iter()).enumerate().skip(1) {
+        let prev_index_string = format!("{:0>2}", index - 1);
+        let prev_carry = format!("x{prev_index_string}");
+
+        let index_string = format!("{index:0>2}");
+        let temporary_sum = format!("s{index_string}");
+        let temporary_carry_1 = format!("a{index_string}");
+        let temporary_carry_2 = format!("b{index_string}");
+        let output = format!("z{index_string}");
+
+        // The last carry is just the last z.
+        let carry = if index == total_input_bits - 1 {
+            let next_index_string = format!("{:0>2}", index + 1);
+            format!("s{next_index_string}")
+        } else {
+            format!("c{index_string}")
+        };
+
+        adder.push((temporary_sum.clone(), (y_input.clone(), Gate::Xor, x_input.clone())));
+        adder.push((output, (prev_carry.clone(), Gate::Xor, temporary_sum.clone())));
+
+        adder.push((temporary_carry_1.clone(), (y_input.clone(), Gate::And, x_input.clone())));
+        adder.push((temporary_carry_2.clone(), (prev_carry.clone(), Gate::And, temporary_sum.clone())));
+        adder.push((carry, (temporary_carry_2, Gate::Or, temporary_carry_1)));
+    }
+
+    adder
+}
+
 fn part_2(file_path: String) -> usize {
-    let (_inputs, _gates) = parse_data(file_path);
+    let (known_registers, connected_gates) = parse_data(file_path);
+
+    let x_inputs = known_registers.keys().filter(|key| key.starts_with("x")).sorted().collect_vec();
+    let y_inputs = known_registers.keys().filter(|key| key.starts_with("y")).sorted().collect_vec();
+
+    // println!("{x_inputs:?}");
+    // println!("{y_inputs:?}");
+
+    // I'm almost certain this is a standard binary adder circuit,
+    // so I can program how it's supposed to look and find the mismatches.
+    let adder = get_standard_adder(x_inputs, y_inputs);
+
+    println!("input {connected_gates:?} has length {}", connected_gates.len());
+    println!("expected {adder:?} has length {}", adder.len());
 
     0
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -149,7 +191,6 @@ mod tests {
     }
 
     #[rstest]
-    #[case(true, 0)]
     #[case(false, 0)]
     fn test_part_2(#[case] is_test: bool, #[case] expected: usize) {
         assert_eq!(expected, part_2(get_file_path(is_test, 24, None)));
