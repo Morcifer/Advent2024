@@ -3,6 +3,7 @@ use crate::file_utilities::read_two_chunks;
 use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
+use crate::day_24::Gate::Xor;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Gate {
@@ -81,8 +82,11 @@ pub fn run(file_path: String, part: i32) -> usize {
     }
 }
 
-fn part_1(file_path: String) -> usize {
-    let (mut known_registers, connected_gates) = parse_data(file_path);
+fn calculate_output(
+    known_registers: &HashMap<String, usize>,
+    connected_gates: &HashMap<String, (String, Gate, String)>,
+) -> usize {
+    let mut known_registers = known_registers.clone();
 
     let all_registers: HashSet<String> = connected_gates
         .iter()
@@ -95,6 +99,7 @@ fn part_1(file_path: String) -> usize {
         let known_register_map: HashSet<String> = known_registers.keys().cloned().collect();
         let unknown_registers = all_registers.difference(&known_register_map).collect_vec();
         // println!("I have {} unknown registers left", unknown_registers.len());
+        let mut found_match = false;
 
         for unknown_register in unknown_registers {
             let (from, gate, to) = connected_gates.get(unknown_register).unwrap();
@@ -102,8 +107,14 @@ fn part_1(file_path: String) -> usize {
                 if let Some(to_value) = known_registers.get(to) {
                     let new_value = gate.calculate(*from_value, *to_value);
                     known_registers.insert(unknown_register.clone(), new_value);
+                    found_match = true;
                 }
             }
+        }
+
+        if !found_match {
+            // println!("I'm stuck!");
+            return 0;
         }
     }
 
@@ -125,9 +136,14 @@ fn part_1(file_path: String) -> usize {
     usize::from_str_radix(output.as_str(), 2).unwrap()
 }
 
+fn part_1(file_path: String) -> usize {
+    let (known_registers, connected_gates) = parse_data(file_path);
+    calculate_output(&known_registers, &connected_gates)
+}
+
 fn get_standard_adder(
-    x_inputs: &Vec<&String>,
-    y_inputs: &Vec<&String>,
+    x_inputs: &Vec<String>,
+    y_inputs: &Vec<String>,
 ) -> Vec<(String, (String, Gate, String))> {
     let x_inputs = x_inputs.clone();
     let y_inputs = y_inputs.clone();
@@ -193,33 +209,108 @@ fn get_standard_adder(
 
 fn part_2(file_path: String) -> usize {
     let (known_registers, connected_gates) = parse_data(file_path);
+    let output = calculate_output(&known_registers, &connected_gates);
 
     let x_inputs = known_registers
         .keys()
         .filter(|key| key.starts_with("x"))
         .sorted()
+        .cloned()
         .collect_vec();
+
+    let x = x_inputs
+        .clone()
+        .into_iter()
+        .rev()
+        .map(|key| *known_registers.get(&key).unwrap())
+        .map(|value| value.to_string())
+        .collect_vec()
+        .join("");
+
+    let x = usize::from_str_radix(x.as_str(), 2).unwrap();
 
     let y_inputs = known_registers
         .keys()
         .filter(|key| key.starts_with("y"))
         .sorted()
+        .cloned()
         .collect_vec();
+
+    let y = y_inputs
+        .clone()
+        .into_iter()
+        .rev()
+        .map(|key| *known_registers.get(&key).unwrap())
+        .map(|value| value.to_string())
+        .collect_vec()
+        .join("");
+
+    let y = usize::from_str_radix(y.as_str(), 2).unwrap();
+
+    let expected_output = x + y;
+
+    println!("x is {x:b} and y is {y:b} and we should get {expected_output:b} but get {output:b}");
+
+    // let mut known_registers = known_registers;
+    //
+    // for y_input in y_inputs {
+    //     if y_input == "y00" {
+    //         known_registers.insert(y_input.clone(), 1);
+    //     } else {
+    //         known_registers.insert(y_input.clone(), 0);
+    //     }
+    // }
+    //
+    // let temp = x_inputs.len();
+    //
+    // for x in 0..2_usize.pow(10 as u32) {
+    //     let x_binary = format!("{x:b}");
+    //     // println!("{x}: {x_binary}");
+    //
+    //     for (index, char) in x_binary.chars().rev().enumerate() {
+    //         let index_string = format!("{index:0>2}");
+    //         let x_string = format!("x{index_string}");
+    //         let value = char.to_digit(10).unwrap() as usize;
+    //
+    //         // println!("{x_string} is put on {value}");
+    //         known_registers.insert(x_string, value);
+    //     }
+    //
+    //     for index in x_binary.len()..temp {
+    //         let index_string = format!("{index:0>2}");
+    //         let x_string = format!("x{index_string}");
+    //
+    //         // println!("{x_string} is put on 0");
+    //         known_registers.insert(x_string, 0);
+    //     }
+    //
+    //     let output = calculate_output(&known_registers, &connected_gates);
+    //     let expected_output = x + 1;
+    //
+    //     if output != expected_output {
+    //         println!("When x = {x} ({x_binary}), we get {output} instead of {expected_output}");
+    //         break;
+    //     }
+    // }
 
     // println!("{x_inputs:?}");
     // println!("{y_inputs:?}");
-
+    //
     // I'm almost certain this is a standard binary adder circuit,
     // so I can program how it's supposed to look and find the mismatches.
     let adder: HashMap<String, (String, Gate, String)> = get_standard_adder(&x_inputs, &y_inputs)
         .into_iter()
         .collect();
 
-    println!(
-        "input {connected_gates:?} has length {}",
-        connected_gates.len()
-    );
-    println!("expected {adder:?} has length {}", adder.len());
+    // println!("Expected");
+    // for (key, value) in adder.iter() {
+    //     println!("{key:?}: {value:?}");
+    // }
+    //
+    // println!("Actual");
+    // for (key, value) in connected_gates.iter() {
+    //     println!("{key:?}: {value:?}");
+    // }
 
     let z_outputs = adder
         .keys()
@@ -227,20 +318,12 @@ fn part_2(file_path: String) -> usize {
         .sorted()
         .collect_vec();
 
-    let mut name_mapping: HashMap<String, String> = HashMap::new();
-
     for z_output in z_outputs.iter() {
         let original = connected_gates.get(*z_output).unwrap();
         let expected = adder.get(*z_output).unwrap();
 
         if original.1 != expected.1 {
             println!("Mismatch {z_output:?}: {original:?} vs expected {expected:?}");
-            // Mismatch "z28": ("y28", And, "x28") vs expected ("c27", Xor, "s28")
-            // Mismatch "z08": ("kwv", Or, "ctv") vs expected ("c07", Xor, "s08")
-            // Mismatch "z39": ("thk", And, "wnk") vs expected ("c38", Xor, "s39")
-        }
-        else {
-            println!("Matching-maybe {z_output:?}: {original:?} vs expected {expected:?}");
         }
     }
 
@@ -275,6 +358,86 @@ fn part_2(file_path: String) -> usize {
         if z_outputs.contains(&and_origin) {
             println!("Mismatch {and_1:?} or {and_2:?}: {and_origin:?} vs expected {and_expected:?}");
             // Mismatch ("x28", And, "y28") or ("y28", And, "x28"): "z28" vs expected "a28"
+        }
+    }
+
+    for ((x, gate, y), z) in reverse_connected_gates.iter() {
+        if *gate != Gate::Xor {
+            continue;
+        }
+
+        let x_and_y = x.starts_with("x") && y.starts_with("y");
+        let y_and_x = x.starts_with("y") && y.starts_with("x");
+
+        if !z.starts_with("z") && !x_and_y && !y_and_x {
+            println!("Mismatch for {:?}", ((x, gate, y), z));
+        }
+    }
+
+    let known_problems = vec!["z08", "z28", "z39", "vvr", "mqh", "tfb"].into_iter().map(|s| s.to_string()).collect_vec();
+    let mut option_checked = 0;
+
+    for extra_problem_1 in connected_gates.keys() {
+        for extra_problem_2 in connected_gates.keys() {
+            let extra = vec![extra_problem_1.clone(), extra_problem_2.clone()];
+            let all_problems: Vec<String> = known_problems.iter().chain(extra.iter()).cloned().collect_vec();
+
+            if all_problems.iter().unique().count() < 8 {
+                continue;
+            }
+
+            println!("Checking problems {all_problems:?}");
+            return 0;
+
+            for tuple_1 in all_problems.iter().cloned().tuple_combinations::<(_,_)>() {
+                let less_problems: Vec<String> = all_problems.iter().filter(|a| **a != tuple_1.0 && **a != tuple_1.1).cloned().collect_vec();
+
+                for tuple_2 in less_problems.iter().cloned().tuple_combinations::<(_,_)>() {
+                    let even_less_problems: Vec<String> = less_problems.iter().filter(|a| **a != tuple_2.0 && **a != tuple_2.1).cloned().collect_vec();
+
+                    for tuple_3 in even_less_problems.iter().cloned().tuple_combinations::<(_,_)>() {
+                        let more_even_less_problems: Vec<String> = even_less_problems.iter().filter(|a| **a != tuple_3.0 && **a != tuple_3.1).cloned().collect_vec();
+
+                        let tuple_4 = (more_even_less_problems[0].clone(), more_even_less_problems[1].clone());
+
+                        option_checked += 1;
+                        println!("Checking option {option_checked} tuples {tuple_1:?}, {tuple_2:?}, {tuple_3:?}, {tuple_4:?}");
+
+                        let mut altered_connected_gates = connected_gates.clone();
+
+                        let t_1_0 = altered_connected_gates.remove(&tuple_1.0).unwrap();
+                        let t_1_1 = altered_connected_gates.remove(&tuple_1.1).unwrap();
+
+                        altered_connected_gates.insert(tuple_1.0.clone(), t_1_1);
+                        altered_connected_gates.insert(tuple_1.1.clone(), t_1_0);
+
+                        let t_2_0 = altered_connected_gates.remove(&tuple_2.0).unwrap();
+                        let t_2_1 = altered_connected_gates.remove(&tuple_2.1).unwrap();
+
+                        altered_connected_gates.insert(tuple_2.0.clone(), t_2_1);
+                        altered_connected_gates.insert(tuple_2.1.clone(), t_2_0);
+
+                        let t_3_0 = altered_connected_gates.remove(&tuple_3.0).unwrap();
+                        let t_3_1 = altered_connected_gates.remove(&tuple_3.1).unwrap();
+
+                        altered_connected_gates.insert(tuple_3.0.clone(), t_3_1);
+                        altered_connected_gates.insert(tuple_3.1.clone(), t_3_0);
+
+                        let t_4_0 = altered_connected_gates.remove(&tuple_4.0).unwrap();
+                        let t_4_1 = altered_connected_gates.remove(&tuple_4.1).unwrap();
+
+                        altered_connected_gates.insert(tuple_4.0.clone(), t_4_1);
+                        altered_connected_gates.insert(tuple_4.1.clone(), t_4_0);
+
+                        let output = calculate_output(&known_registers, &altered_connected_gates);
+
+                        if output == expected_output {
+                            println!("{all_problems:?}");
+                            return 42;
+                        }
+                    }
+                }
+            }
         }
     }
 
