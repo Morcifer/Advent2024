@@ -374,11 +374,108 @@ fn part_2(file_path: String) -> usize {
         }
     }
 
+    let mut temporary_sums = vec![];
+    let mut temporary_carry_1s = vec![];
+
+    for ((input_1, gate, input_2), output) in reverse_connected_gates.iter() {
+        let output_is_z = output.starts_with("z");
+        let input_is_x_and_y = input_1.starts_with("x") && input_2.starts_with("y");
+        let input_is_y_and_x = input_1.starts_with("y") && input_2.starts_with("x");
+
+        match gate {
+            Gate::Xor => {
+                // A Xor should either go to temporay sum (with x and y) or an output.
+                if input_is_y_and_x || input_is_x_and_y {
+                    temporary_sums.push(((input_1.clone(), gate.clone(), input_2.clone()), output));
+                }
+                if output_is_z && (input_is_x_and_y || input_is_y_and_x) {
+                    println!("{:?} is incorrect because output should not be Z!", ((input_1, gate, input_2), output));
+                    continue;
+                }
+
+                if !input_is_x_and_y && !input_is_y_and_x {
+                    if !output_is_z {
+                        println!("{:?} is incorrect because output should be Z!", ((input_1, gate, input_2), output));
+                    }
+                }
+            },
+            Gate::And => {
+                if input_is_y_and_x || input_is_x_and_y {
+                    temporary_carry_1s.push(((input_1.clone(), gate.clone(), input_2.clone()), output.clone()));
+                }
+
+                // An And has to either be an x and y going into not z
+                if output_is_z {
+                    println!("{:?} is incorrect because output should not be Z!", ((input_1, gate, input_2), output));
+                    continue;
+                }
+
+                // Or if it's not x or y, one of the inputs should be a previous carry.
+                if !input_is_x_and_y && !input_is_y_and_x {
+                    let (input_1_input_1, input_1_gate, input_1_input_2) = connected_gates.get(input_1).unwrap();
+                    let (input_2_input_1, input_2_gate, input_2_input_2) = connected_gates.get(input_2).unwrap();
+
+                    if *input_1_gate == Gate::Xor && *input_2_gate == Gate::Or {
+                        continue;
+                    }
+
+                    if *input_2_gate == Gate::Xor && *input_1_gate == Gate::Or {
+                        continue;
+                    }
+
+                    println!("{:?} is incorrect because inputs should be one from OR and one from XOR!", ((input_1, gate, input_2), output));
+                    println!("    and instead I have {input_1} from {input_1_gate:?}, and {input_2} from {input_2_gate:?}");
+                }
+            },
+            Gate::Or => {
+                // An OR has to be output carry and input two temp_carries, i.e. no x, y or z.
+                if output_is_z && (input_is_x_and_y || input_is_y_and_x) {
+                    println!("{:?} is incorrect!", ((input_1, gate, input_2), output));
+                }
+            }
+        }
+    }
+
+    println!("Temporary sums: {temporary_sums:?}");
+    println!("Temporary carry 1s: {temporary_carry_1s:?}");
+
+    let mut temporary_carry_2s = vec![];
+
+    let temp1_s: HashSet<String> = temporary_carry_1s.iter().map(|(_, v)| v.clone()).collect();
+
+    for ((input_1, gate, input_2), output) in reverse_connected_gates.iter() {
+        let output_is_z = output.starts_with("z");
+        let input_is_x_and_y = input_1.starts_with("x") && input_2.starts_with("y");
+        let input_is_y_and_x = input_1.starts_with("y") && input_2.starts_with("x");
+
+        if *gate != Gate::Or {
+            continue;
+        }
+
+        if temp1_s.contains(input_1) {
+            temporary_carry_2s.push(input_2.clone());
+        } else if temp1_s.contains(input_2) {
+            temporary_carry_2s.push(input_2.clone());
+        } else {
+            println!("I don't think {:?} is correct", ((input_1, gate, input_2), output))
+        }
+
+
+    }
+
+    println!("Temporary carry 2s: {temporary_carry_2s:?}");
+
+    // return 0;
+
+    let mut result = HashSet::new();
+
     let known_problems = vec!["z08", "z28", "z39", "vvr", "mqh", "tfb"].into_iter().map(|s| s.to_string()).collect_vec();
+    let extra_problems = vec!["qvn", "sgr", "drw", "pvv", "rnq", "mcc", "ggf", "rqg", "gws", "tfb", "vst", "bkr", "kbg"].into_iter().map(|s| s.to_string()).collect_vec();
+
     let mut option_checked = 0;
 
-    for extra_problem_1 in connected_gates.keys() {
-        for extra_problem_2 in connected_gates.keys() {
+    for extra_problem_1 in extra_problems.iter() {
+        for extra_problem_2 in extra_problems.iter() {
             let extra = vec![extra_problem_1.clone(), extra_problem_2.clone()];
             let all_problems: Vec<String> = known_problems.iter().chain(extra.iter()).cloned().collect_vec();
 
@@ -386,61 +483,119 @@ fn part_2(file_path: String) -> usize {
                 continue;
             }
 
-            println!("Checking problems {all_problems:?}");
-            return 0;
+            // println!("Checking problems {all_problems:?}");
 
-            for tuple_1 in all_problems.iter().cloned().tuple_combinations::<(_,_)>() {
-                let less_problems: Vec<String> = all_problems.iter().filter(|a| **a != tuple_1.0 && **a != tuple_1.1).cloned().collect_vec();
+            for (t1_1, t2_1, t3_1, t4_1) in all_problems.iter().cloned().tuple_combinations::<(_,_,_,_)>() {
+                let less_problems: Vec<String> = all_problems
+                    .iter()
+                    .filter(|a| **a != t1_1 && **a != t2_1 && **a != t3_1 && **a != t4_1)
+                    .cloned()
+                    .collect_vec();
 
-                for tuple_2 in less_problems.iter().cloned().tuple_combinations::<(_,_)>() {
-                    let even_less_problems: Vec<String> = less_problems.iter().filter(|a| **a != tuple_2.0 && **a != tuple_2.1).cloned().collect_vec();
+                for ts_2 in less_problems.iter().permutations(4) {
+                    let tuple_1 = (t1_1.clone(), ts_2[0].clone());
+                    let tuple_2 = (t2_1.clone(), ts_2[1].clone());
+                    let tuple_3 = (t3_1.clone(), ts_2[2].clone());
+                    let tuple_4 = (t4_1.clone(), ts_2[3].clone());
 
-                    for tuple_3 in even_less_problems.iter().cloned().tuple_combinations::<(_,_)>() {
-                        let more_even_less_problems: Vec<String> = even_less_problems.iter().filter(|a| **a != tuple_3.0 && **a != tuple_3.1).cloned().collect_vec();
+                    option_checked += 1;
 
-                        let tuple_4 = (more_even_less_problems[0].clone(), more_even_less_problems[1].clone());
+                    // if option_checked % 1000 == 0 {
+                    //     println!(
+                    //         "Checking option {option_checked} (out of tuples {}?) {tuple_1:?}, {tuple_2:?}, {tuple_3:?}, {tuple_4:?}",
+                    //         720 * extra_problems.len() * extra_problems.len(),
+                    //     );
+                    // }
 
-                        option_checked += 1;
-                        println!("Checking option {option_checked} tuples {tuple_1:?}, {tuple_2:?}, {tuple_3:?}, {tuple_4:?}");
+                    let mut altered_connected_gates = connected_gates.clone();
 
-                        let mut altered_connected_gates = connected_gates.clone();
+                    let t_1_0 = altered_connected_gates.remove(&tuple_1.0).unwrap();
+                    let t_1_1 = altered_connected_gates.remove(&tuple_1.1).unwrap();
 
-                        let t_1_0 = altered_connected_gates.remove(&tuple_1.0).unwrap();
-                        let t_1_1 = altered_connected_gates.remove(&tuple_1.1).unwrap();
+                    altered_connected_gates.insert(tuple_1.0.clone(), t_1_1);
+                    altered_connected_gates.insert(tuple_1.1.clone(), t_1_0);
 
-                        altered_connected_gates.insert(tuple_1.0.clone(), t_1_1);
-                        altered_connected_gates.insert(tuple_1.1.clone(), t_1_0);
+                    let t_2_0 = altered_connected_gates.remove(&tuple_2.0).unwrap();
+                    let t_2_1 = altered_connected_gates.remove(&tuple_2.1).unwrap();
 
-                        let t_2_0 = altered_connected_gates.remove(&tuple_2.0).unwrap();
-                        let t_2_1 = altered_connected_gates.remove(&tuple_2.1).unwrap();
+                    altered_connected_gates.insert(tuple_2.0.clone(), t_2_1);
+                    altered_connected_gates.insert(tuple_2.1.clone(), t_2_0);
 
-                        altered_connected_gates.insert(tuple_2.0.clone(), t_2_1);
-                        altered_connected_gates.insert(tuple_2.1.clone(), t_2_0);
+                    let t_3_0 = altered_connected_gates.remove(&tuple_3.0).unwrap();
+                    let t_3_1 = altered_connected_gates.remove(&tuple_3.1).unwrap();
 
-                        let t_3_0 = altered_connected_gates.remove(&tuple_3.0).unwrap();
-                        let t_3_1 = altered_connected_gates.remove(&tuple_3.1).unwrap();
+                    altered_connected_gates.insert(tuple_3.0.clone(), t_3_1);
+                    altered_connected_gates.insert(tuple_3.1.clone(), t_3_0);
 
-                        altered_connected_gates.insert(tuple_3.0.clone(), t_3_1);
-                        altered_connected_gates.insert(tuple_3.1.clone(), t_3_0);
+                    let t_4_0 = altered_connected_gates.remove(&tuple_4.0).unwrap();
+                    let t_4_1 = altered_connected_gates.remove(&tuple_4.1).unwrap();
 
-                        let t_4_0 = altered_connected_gates.remove(&tuple_4.0).unwrap();
-                        let t_4_1 = altered_connected_gates.remove(&tuple_4.1).unwrap();
+                    altered_connected_gates.insert(tuple_4.0.clone(), t_4_1);
+                    altered_connected_gates.insert(tuple_4.1.clone(), t_4_0);
 
-                        altered_connected_gates.insert(tuple_4.0.clone(), t_4_1);
-                        altered_connected_gates.insert(tuple_4.1.clone(), t_4_0);
+                    let output = calculate_output(&known_registers, &altered_connected_gates);
 
-                        let output = calculate_output(&known_registers, &altered_connected_gates);
-
-                        if output == expected_output {
-                            println!("{all_problems:?}");
-                            return 42;
-                        }
+                    if output == expected_output {
+                        let temp = all_problems.clone().into_iter().sorted().join(",");
+                        println!("{temp:?} at {option_checked} out of {}", 720 * extra_problems.len() * extra_problems.len());
+                        result.insert(temp);
                     }
                 }
             }
+
+            // for tuple_1 in all_problems.iter().cloned().tuple_combinations::<(_,_)>() {
+            //     let less_problems: Vec<String> = all_problems.iter().filter(|a| **a != tuple_1.0 && **a != tuple_1.1).cloned().collect_vec();
+            //
+            //     for tuple_2 in less_problems.iter().cloned().tuple_combinations::<(_,_)>() {
+            //         let even_less_problems: Vec<String> = less_problems.iter().filter(|a| **a != tuple_2.0 && **a != tuple_2.1).cloned().collect_vec();
+            //
+            //         for tuple_3 in even_less_problems.iter().cloned().tuple_combinations::<(_,_)>() {
+            //             let more_even_less_problems: Vec<String> = even_less_problems.iter().filter(|a| **a != tuple_3.0 && **a != tuple_3.1).cloned().collect_vec();
+            //
+            //             let tuple_4 = (more_even_less_problems[0].clone(), more_even_less_problems[1].clone());
+            //
+            //             option_checked += 1;
+            //             println!("Checking option {option_checked} tuples {tuple_1:?}, {tuple_2:?}, {tuple_3:?}, {tuple_4:?}");
+            //
+            //             let mut altered_connected_gates = connected_gates.clone();
+            //
+            //             let t_1_0 = altered_connected_gates.remove(&tuple_1.0).unwrap();
+            //             let t_1_1 = altered_connected_gates.remove(&tuple_1.1).unwrap();
+            //
+            //             altered_connected_gates.insert(tuple_1.0.clone(), t_1_1);
+            //             altered_connected_gates.insert(tuple_1.1.clone(), t_1_0);
+            //
+            //             let t_2_0 = altered_connected_gates.remove(&tuple_2.0).unwrap();
+            //             let t_2_1 = altered_connected_gates.remove(&tuple_2.1).unwrap();
+            //
+            //             altered_connected_gates.insert(tuple_2.0.clone(), t_2_1);
+            //             altered_connected_gates.insert(tuple_2.1.clone(), t_2_0);
+            //
+            //             let t_3_0 = altered_connected_gates.remove(&tuple_3.0).unwrap();
+            //             let t_3_1 = altered_connected_gates.remove(&tuple_3.1).unwrap();
+            //
+            //             altered_connected_gates.insert(tuple_3.0.clone(), t_3_1);
+            //             altered_connected_gates.insert(tuple_3.1.clone(), t_3_0);
+            //
+            //             let t_4_0 = altered_connected_gates.remove(&tuple_4.0).unwrap();
+            //             let t_4_1 = altered_connected_gates.remove(&tuple_4.1).unwrap();
+            //
+            //             altered_connected_gates.insert(tuple_4.0.clone(), t_4_1);
+            //             altered_connected_gates.insert(tuple_4.1.clone(), t_4_0);
+            //
+            //             let output = calculate_output(&known_registers, &altered_connected_gates);
+            //
+            //             if output == expected_output {
+            //                 println!("{all_problems:?}");
+            //                 return 42;
+            //             }
+            //         }
+            //     }
+            // }
         }
     }
 
+    println!("{result:?}");
     0
 }
 
