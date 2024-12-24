@@ -51,7 +51,12 @@ fn parse_gate_line(line: String) -> (String, (String, Gate, String)) {
     (output, (input_1, gate, input_2))
 }
 
-fn parse_data(file_path: String) -> (HashMap<String, usize>, HashMap<String, (String, Gate, String)>) {
+fn parse_data(
+    file_path: String,
+) -> (
+    HashMap<String, usize>,
+    HashMap<String, (String, Gate, String)>,
+) {
     let (input_lines, gate_lines) = read_two_chunks(file_path);
 
     let inputs = input_lines
@@ -120,17 +125,34 @@ fn part_1(file_path: String) -> usize {
     usize::from_str_radix(output.as_str(), 2).unwrap()
 }
 
-fn get_standard_adder(x_inputs: Vec<&String>, y_inputs: Vec<&String>) -> Vec<(String, (String, Gate, String))> {
+fn get_standard_adder(
+    x_inputs: &Vec<&String>,
+    y_inputs: &Vec<&String>,
+) -> Vec<(String, (String, Gate, String))> {
+    let x_inputs = x_inputs.clone();
+    let y_inputs = y_inputs.clone();
+
     let total_input_bits = x_inputs.len();
 
     let mut adder = vec![
-        ("z00".to_string(), ("y00".to_string(), Gate::Xor, "x00".to_string())),
-        ("c00".to_string(), ("x00".to_string(), Gate::And, "y00".to_string())),
+        (
+            "z00".to_string(),
+            ("y00".to_string(), Gate::Xor, "x00".to_string()),
+        ),
+        (
+            "c00".to_string(),
+            ("x00".to_string(), Gate::And, "y00".to_string()),
+        ),
     ];
 
-    for (index, (x_input, y_input)) in x_inputs.into_iter().zip(y_inputs.into_iter()).enumerate().skip(1) {
+    for (index, (x_input, y_input)) in x_inputs
+        .into_iter()
+        .zip(y_inputs.into_iter())
+        .enumerate()
+        .skip(1)
+    {
         let prev_index_string = format!("{:0>2}", index - 1);
-        let prev_carry = format!("x{prev_index_string}");
+        let prev_carry = format!("c{prev_index_string}");
 
         let index_string = format!("{index:0>2}");
         let temporary_sum = format!("s{index_string}");
@@ -146,11 +168,23 @@ fn get_standard_adder(x_inputs: Vec<&String>, y_inputs: Vec<&String>) -> Vec<(St
             format!("c{index_string}")
         };
 
-        adder.push((temporary_sum.clone(), (y_input.clone(), Gate::Xor, x_input.clone())));
-        adder.push((output, (prev_carry.clone(), Gate::Xor, temporary_sum.clone())));
+        adder.push((
+            temporary_sum.clone(),
+            (y_input.clone(), Gate::Xor, x_input.clone()),
+        ));
+        adder.push((
+            output,
+            (prev_carry.clone(), Gate::Xor, temporary_sum.clone()),
+        ));
 
-        adder.push((temporary_carry_1.clone(), (y_input.clone(), Gate::And, x_input.clone())));
-        adder.push((temporary_carry_2.clone(), (prev_carry.clone(), Gate::And, temporary_sum.clone())));
+        adder.push((
+            temporary_carry_1.clone(),
+            (y_input.clone(), Gate::And, x_input.clone()),
+        ));
+        adder.push((
+            temporary_carry_2.clone(),
+            (prev_carry.clone(), Gate::And, temporary_sum.clone()),
+        ));
         adder.push((carry, (temporary_carry_2, Gate::Or, temporary_carry_1)));
     }
 
@@ -160,22 +194,92 @@ fn get_standard_adder(x_inputs: Vec<&String>, y_inputs: Vec<&String>) -> Vec<(St
 fn part_2(file_path: String) -> usize {
     let (known_registers, connected_gates) = parse_data(file_path);
 
-    let x_inputs = known_registers.keys().filter(|key| key.starts_with("x")).sorted().collect_vec();
-    let y_inputs = known_registers.keys().filter(|key| key.starts_with("y")).sorted().collect_vec();
+    let x_inputs = known_registers
+        .keys()
+        .filter(|key| key.starts_with("x"))
+        .sorted()
+        .collect_vec();
+
+    let y_inputs = known_registers
+        .keys()
+        .filter(|key| key.starts_with("y"))
+        .sorted()
+        .collect_vec();
 
     // println!("{x_inputs:?}");
     // println!("{y_inputs:?}");
 
     // I'm almost certain this is a standard binary adder circuit,
     // so I can program how it's supposed to look and find the mismatches.
-    let adder = get_standard_adder(x_inputs, y_inputs);
+    let adder: HashMap<String, (String, Gate, String)> = get_standard_adder(&x_inputs, &y_inputs)
+        .into_iter()
+        .collect();
 
-    println!("input {connected_gates:?} has length {}", connected_gates.len());
+    println!(
+        "input {connected_gates:?} has length {}",
+        connected_gates.len()
+    );
     println!("expected {adder:?} has length {}", adder.len());
+
+    let z_outputs = adder
+        .keys()
+        .filter(|key| key.starts_with("z"))
+        .sorted()
+        .collect_vec();
+
+    let mut name_mapping: HashMap<String, String> = HashMap::new();
+
+    for z_output in z_outputs.iter() {
+        let original = connected_gates.get(*z_output).unwrap();
+        let expected = adder.get(*z_output).unwrap();
+
+        if original.1 != expected.1 {
+            println!("Mismatch {z_output:?}: {original:?} vs expected {expected:?}");
+            // Mismatch "z28": ("y28", And, "x28") vs expected ("c27", Xor, "s28")
+            // Mismatch "z08": ("kwv", Or, "ctv") vs expected ("c07", Xor, "s08")
+            // Mismatch "z39": ("thk", And, "wnk") vs expected ("c38", Xor, "s39")
+        }
+        else {
+            println!("Matching-maybe {z_output:?}: {original:?} vs expected {expected:?}");
+        }
+    }
+
+    let reverse_connected_gates: HashMap<(String, Gate, String), String> = connected_gates
+        .iter()
+        .map(|(key, value)| (value.clone(), key.clone()))
+        .collect();
+
+    let reverse_adder: HashMap<(String, Gate, String), String> = adder
+        .iter()
+        .map(|(key, value)| (value.clone(), key.clone()))
+        .collect();
+
+    for (x_input, y_input) in x_inputs.into_iter().zip(y_inputs.into_iter()).skip(1) {
+        let xor_1 = (x_input.clone(), Gate::Xor, y_input.clone());
+        let xor_2 = (y_input.clone(), Gate::Xor, x_input.clone());
+
+        let and_1 = (x_input.clone(), Gate::And, y_input.clone());
+        let and_2 = (y_input.clone(), Gate::And, x_input.clone());
+
+        let xor_origin = reverse_connected_gates.get(&xor_1).unwrap_or_else(|| reverse_connected_gates.get(&xor_2).unwrap());
+        let xor_expected = reverse_adder.get(&xor_1).unwrap_or_else(|| reverse_adder.get(&xor_2).unwrap());
+
+        let and_origin = reverse_connected_gates.get(&and_1).unwrap_or_else(|| reverse_connected_gates.get(&and_2).unwrap());
+        let and_expected = reverse_adder.get(&and_1).unwrap_or_else(|| reverse_adder.get(&and_2).unwrap());
+
+        if z_outputs.contains(&xor_origin){
+            println!("Mismatch {xor_1:?} or {xor_2:?}: {xor_origin:?} vs expected {xor_expected:?}");
+            // Mismatch ("x00", Xor, "y00") or ("y00", Xor, "x00"): "z00" vs expected "z00"
+        }
+
+        if z_outputs.contains(&and_origin) {
+            println!("Mismatch {and_1:?} or {and_2:?}: {and_origin:?} vs expected {and_expected:?}");
+            // Mismatch ("x28", And, "y28") or ("y28", And, "x28"): "z28" vs expected "a28"
+        }
+    }
 
     0
 }
-
 
 #[cfg(test)]
 mod tests {
