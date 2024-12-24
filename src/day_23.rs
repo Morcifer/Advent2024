@@ -4,6 +4,8 @@ use itertools::Itertools;
 
 use crate::file_utilities::read_lines;
 
+// TODO: Have part 1 use part 2 by going over clusters that are >= 3 and summing over n-choose-3.
+
 fn parse_edge_line(line: String) -> (String, String) {
     line.split("-")
         .map(str::trim)
